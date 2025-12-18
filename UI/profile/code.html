@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Profile Settings - BotPanel</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#6366f1",
+                        "primary-hover": "#4f46e5",
+                        "background-light": "#f8fafc",
+                        "background-dark": "#09090b",
+                        "surface-dark": "#27272a",
+                        "surface-darker": "#18181b",
+                        "border-dark": "#27272a",
+                        "text-secondary": "#a1a1aa"
+                    },
+                    fontFamily: {
+                        "display": ["Plus Jakarta Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #09090b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272a; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3f3f46; 
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white antialiased overflow-hidden h-screen flex flex-col">
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-gray-200 dark:border-border-dark bg-white dark:bg-surface-darker px-6 py-3 shrink-0 z-20">
+<div class="flex items-center gap-4">
+<div class="size-8 text-primary flex items-center justify-center bg-primary/10 rounded-lg">
+<span class="material-symbols-outlined text-2xl">smart_toy</span>
+</div>
+<h2 class="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">BotPanel</h2>
+</div>
+<div class="flex flex-1 justify-end gap-6">
+<div class="flex gap-2">
+<button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-border-dark text-slate-900 dark:text-white transition-colors hover:bg-gray-200 dark:hover:bg-surface-dark">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-border-dark text-slate-900 dark:text-white transition-colors hover:bg-gray-200 dark:hover:bg-surface-dark">
+<span class="material-symbols-outlined">help</span>
+</button>
+</div>
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-10 ring-2 ring-gray-200 dark:ring-border-dark" data-alt="User profile avatar showing a stylized robot face" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA8yhdsfa2533TJaea4WGrH243s5Vdn6J4X2b0duXi982TYr5AX2XbN-POQ-v7UrVXU20rg4q1947WPk0Uyiry4XfHZy20bj_QK6_C1W3qRexNXQ9MfPXudApFy0qtItq__yBT3YE74ot9mJcdvAjoC-QVZM8m2HoI6mSFVXrOSn5JB9ovwc-ACZgWE_xKMQvNgPrqDbanD2CkGSO21ZlqeJt0vHaZcL0O7cO1d9Ta_El8v1xZRRUSW96fAJOSHTpXHR022J-T0IYwY");'></div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<aside class="w-64 lg:w-72 border-r border-gray-200 dark:border-border-dark bg-white dark:bg-surface-darker flex-col hidden md:flex shrink-0">
+<div class="flex h-full flex-col justify-between p-4">
+<div class="flex flex-col gap-4">
+<div class="px-2">
+<h1 class="text-slate-500 dark:text-text-secondary text-xs font-bold uppercase tracking-wider leading-normal">Settings</h1>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary" href="#">
+<span class="material-symbols-outlined fill-1">person</span>
+<p class="text-sm font-bold leading-normal">Profile</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-dark text-slate-600 dark:text-text-secondary transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-slate-900 dark:group-hover:text-white transition-colors">shield</span>
+<p class="text-sm font-medium leading-normal group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Account Security</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-dark text-slate-600 dark:text-text-secondary transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-slate-900 dark:group-hover:text-white transition-colors">credit_card</span>
+<p class="text-sm font-medium leading-normal group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Billing</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-dark text-slate-600 dark:text-text-secondary transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-slate-900 dark:group-hover:text-white transition-colors">link</span>
+<p class="text-sm font-medium leading-normal group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Connections</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-dark text-slate-600 dark:text-text-secondary transition-colors group" href="#">
+<span class="material-symbols-outlined group-hover:text-slate-900 dark:group-hover:text-white transition-colors">api</span>
+<p class="text-sm font-medium leading-normal group-hover:text-slate-900 dark:group-hover:text-white transition-colors">API Keys</p>
+</a>
+</nav>
+</div>
+<div class="px-2 pb-2">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-red-500/10 text-red-500 hover:text-red-600 transition-colors" href="#">
+<span class="material-symbols-outlined">logout</span>
+<p class="text-sm font-medium leading-normal">Log Out</p>
+</a>
+</div>
+</div>
+</aside>
+<main class="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark p-4 md:p-8 lg:px-12 xl:px-24">
+<div class="mx-auto max-w-[800px] flex flex-col gap-8 pb-10">
+<div class="flex flex-col gap-2">
+<h1 class="text-slate-900 dark:text-white text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em]">Profile Settings</h1>
+<p class="text-slate-500 dark:text-text-secondary text-base font-normal leading-normal">Manage your personal identity, avatar, and notification preferences.</p>
+</div>
+<div class="bg-white dark:bg-surface-darker rounded-xl border border-gray-200 dark:border-border-dark p-6 shadow-sm">
+<div class="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
+<div class="flex gap-5 items-center">
+<div class="relative group cursor-pointer">
+<div class="bg-center bg-no-repeat bg-cover rounded-full size-24 md:size-28 ring-4 ring-gray-100 dark:ring-border-dark" data-alt="User profile avatar showing a stylized robot face" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC0KcNj8gRRbeoudzNd6t31JPO-x3etvO4qoxoP-fG-vTIItGTgRRhMKUMiPOS8nsbvZtKLa4vSrbR-kFuqnMwTq4ha2wTlLlw9hT_pc0y8iDRPr9oYYaQ0OWOpnBRFhOzcfe8PXRHoqtt7jZJceaUsomcYFGnRrU7e-yZJ5UsNPQ3291SJt9qCnqG_kXVIN7jpqI9fSTRlRPu8W-noDz1oBQY4ts0HQC8kNUnb0REaxvKGkmCNIxREwEE-hpud7Sot6vlmzGPFcN0l");'></div>
+<div class="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+<span class="material-symbols-outlined">edit</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<p class="text-slate-900 dark:text-white text-xl font-bold leading-tight">Your Avatar</p>
+<p class="text-slate-500 dark:text-text-secondary text-sm font-normal">We support PNGs, JPGs under 10MB</p>
+</div>
+</div>
+<div class="flex gap-3 w-full md:w-auto">
+<button class="flex-1 md:flex-none cursor-pointer items-center justify-center rounded-lg h-10 px-6 bg-gray-200 dark:bg-border-dark hover:bg-gray-300 dark:hover:bg-surface-dark text-slate-900 dark:text-white text-sm font-bold transition-colors">
+                            Remove
+                        </button>
+<button class="flex-1 md:flex-none cursor-pointer items-center justify-center rounded-lg h-10 px-6 bg-primary hover:bg-primary-hover text-white text-sm font-bold transition-colors shadow-lg shadow-primary/25">
+                            Upload New
+                        </button>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-surface-darker rounded-xl border border-gray-200 dark:border-border-dark p-6 shadow-sm flex flex-col gap-6">
+<h2 class="text-slate-900 dark:text-white text-lg font-bold">Personal Information</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<label class="flex flex-col gap-2">
+<span class="text-slate-900 dark:text-white text-sm font-medium">Display Name</span>
+<input class="w-full rounded-lg border border-gray-300 dark:border-border-dark bg-gray-50 dark:bg-background-dark text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary h-12 px-4 placeholder:text-slate-400 dark:placeholder:text-text-secondary text-base transition-colors" type="text" value="BotMaster_99"/>
+</label>
+<label class="flex flex-col gap-2 relative">
+<span class="text-slate-900 dark:text-white text-sm font-medium flex justify-between">
+                            Discord Username
+                            <span class="text-xs font-bold text-green-500 flex items-center gap-1 uppercase tracking-wider bg-green-500/10 px-2 py-0.5 rounded-full">
+<span class="material-symbols-outlined text-[14px]">check_circle</span> Linked
+                            </span>
+</span>
+<div class="relative">
+<input class="w-full rounded-lg border border-gray-200 dark:border-border-dark bg-gray-100 dark:bg-surface-dark text-slate-500 dark:text-gray-400 h-12 px-4 pl-10 text-base cursor-not-allowed select-none" readonly="" type="text" value="user#1234"/>
+<span class="material-symbols-outlined absolute left-3 top-3 text-slate-400 dark:text-gray-500">chat</span>
+</div>
+</label>
+<label class="flex flex-col gap-2 md:col-span-2">
+<span class="text-slate-900 dark:text-white text-sm font-medium">Email Address</span>
+<input class="w-full rounded-lg border border-gray-300 dark:border-border-dark bg-gray-50 dark:bg-background-dark text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary h-12 px-4 placeholder:text-slate-400 dark:placeholder:text-text-secondary text-base transition-colors" type="email" value="hello@example.com"/>
+<p class="text-xs text-slate-500 dark:text-text-secondary">We'll verify this email if you change it.</p>
+</label>
+<label class="flex flex-col gap-2 md:col-span-2">
+<span class="text-slate-900 dark:text-white text-sm font-medium">Bio</span>
+<textarea class="w-full rounded-lg border border-gray-300 dark:border-border-dark bg-gray-50 dark:bg-background-dark text-slate-900 dark:text-white focus:border-primary focus:ring-1 focus:ring-primary min-h-[120px] p-4 placeholder:text-slate-400 dark:placeholder:text-text-secondary text-base resize-y transition-colors" placeholder="Tell us a bit about yourself..."></textarea>
+</label>
+</div>
+</div>
+<div class="bg-white dark:bg-surface-darker rounded-xl border border-gray-200 dark:border-border-dark p-6 shadow-sm flex flex-col gap-6">
+<h2 class="text-slate-900 dark:text-white text-lg font-bold">Notification Preferences</h2>
+<div class="flex flex-col gap-4 divide-y divide-gray-100 dark:divide-border-dark">
+<div class="flex items-center justify-between py-2">
+<div class="flex flex-col gap-0.5">
+<p class="text-slate-900 dark:text-white text-sm font-bold">Email Updates</p>
+<p class="text-slate-500 dark:text-text-secondary text-sm">Receive digest emails about your bot's performance.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-border-dark peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex items-center justify-between pt-4 py-2">
+<div class="flex flex-col gap-0.5">
+<p class="text-slate-900 dark:text-white text-sm font-bold">Bot Status Alerts</p>
+<p class="text-slate-500 dark:text-text-secondary text-sm">Get notified immediately if your bot goes offline.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-border-dark peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex items-center justify-between pt-4 py-2">
+<div class="flex flex-col gap-0.5">
+<p class="text-slate-900 dark:text-white text-sm font-bold">Marketing &amp; Tips</p>
+<p class="text-slate-500 dark:text-text-secondary text-sm">Receive helpful tips and promotional offers.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-gray-200 dark:bg-border-dark peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</div>
+<div class="flex flex-col-reverse md:flex-row justify-end gap-4 mt-2">
+<button class="px-6 py-3 rounded-lg text-slate-700 dark:text-white font-bold text-sm bg-transparent hover:bg-gray-200 dark:hover:bg-border-dark transition-colors">
+                    Cancel
+                </button>
+<button class="px-8 py-3 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold text-sm shadow-lg shadow-primary/30 transition-all transform active:scale-95 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">save</span>
+                    Save Changes
+                </button>
+</div>
+</div>
+</main>
+</div>
+
+</body></html>
