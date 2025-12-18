@@ -95,7 +95,7 @@ sudo systemctl start mysql
 
 ```bash
 # If cloning from repository
-git clone https://github.com/yourusername/discord-bot-panel.git
+git clone https://github.com/MoonWIRaja/discord-bot-panel.git
 cd discord-bot-panel
 
 # Or if you already have the project
