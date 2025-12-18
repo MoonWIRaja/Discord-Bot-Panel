@@ -1,0 +1,181 @@
+<script lang="ts">
+</script>
+
+<svelte:head>
+	<title>Dashboard Overview - BotPanel</title>
+</svelte:head>
+
+<section>
+    <h2 class="text-xl font-bold text-white mb-4">Overview</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-dark-card p-6 rounded-xl border border-dark-border shadow-sm flex flex-col gap-1 hover:border-primary/30 transition-colors">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-gray-400">Total Bots</span>
+                <div class="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+                    <span class="material-symbols-outlined text-[24px]">smart_toy</span>
+                </div>
+            </div>
+            <div class="flex items-baseline gap-2">
+                <span class="text-3xl font-bold text-white">12</span>
+                <span class="text-xs font-medium text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">+20%</span>
+            </div>
+        </div>
+        <div class="bg-dark-card p-6 rounded-xl border border-dark-border shadow-sm flex flex-col gap-1 hover:border-primary/30 transition-colors">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-gray-400">Bots Online</span>
+                <div class="p-2 rounded-lg bg-green-500/10 text-green-400">
+                    <span class="material-symbols-outlined text-[24px]">wifi</span>
+                </div>
+            </div>
+            <div class="flex items-baseline gap-2">
+                <span class="text-3xl font-bold text-white">8</span>
+                <span class="text-xs font-medium text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">+5%</span>
+            </div>
+        </div>
+        <div class="bg-dark-card p-6 rounded-xl border border-dark-border shadow-sm flex flex-col gap-1 hover:border-primary/30 transition-colors">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-gray-400">Events (24h)</span>
+                <div class="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                    <span class="material-symbols-outlined text-[24px]">bolt</span>
+                </div>
+            </div>
+            <div class="flex items-baseline gap-2">
+                <span class="text-3xl font-bold text-white">1.4k</span>
+                <span class="text-xs font-medium text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full">+12%</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold text-white">My Bots</h2>
+        <button class="text-sm font-medium text-primary hover:text-primary-hover transition-colors">View all</button>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div class="group bg-dark-card rounded-xl border border-dark-border p-4 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
+            <div class="flex items-start justify-between mb-4">
+                <div class="flex gap-4">
+                    <div class="size-12 rounded-lg bg-cover bg-center shadow-inner ring-1 ring-white/10" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBdvccjPh9qakdbfXEWbu27QlWB12AI3K_CcXHzBJXnLmD2aawfeVrxKUYY7-F1NFRCWYc_vTEHO8yE1GEYqRzPKTc9vIbvwwenPaqtjMDmyAxRkNpH1SSwNvG_j4pEZYcLbtqUivq8_TsN4SJCWmOvU7oZ9JJXMAivhP-zrFSWBt4aNqEq8BXpEu8e5gzq0nr1ztWdTltRPhgEsK-lfYDYTXTBZUt4hLR1FhTixO_8qekfi0dw0ehb7khwvo4cDRxOfL9M_8JiNSQ7')"></div>
+                    <div>
+                        <h3 class="font-bold text-white text-lg leading-tight group-hover:text-primary transition-colors">Moderation Bot</h3>
+                        <div class="flex items-center gap-1.5 mt-1">
+                            <div class="size-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                            <span class="text-xs text-gray-400 font-medium">Online</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="text-gray-500 hover:text-white">
+                    <span class="material-symbols-outlined">more_vert</span>
+                </button>
+            </div>
+            <div class="flex items-center gap-4 mb-5 text-sm text-gray-400">
+                <div class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[18px]">account_tree</span>
+                    <span>12 Flows</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[18px]">group</span>
+                    <span>24 Servers</span>
+                </div>
+            </div>
+            <button class="w-full bg-dark-border hover:bg-primary text-gray-300 hover:text-white font-bold py-2 px-4 rounded-lg text-sm transition-all flex items-center justify-center gap-2">
+                <span>Manage Bot</span>
+                <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+            </button>
+        </div>
+        <div class="group bg-dark-card rounded-xl border border-dark-border p-4 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
+            <div class="flex items-start justify-between mb-4">
+                <div class="flex gap-4">
+                    <div class="size-12 rounded-lg bg-cover bg-center shadow-inner ring-1 ring-white/10" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBqb1eNFSWF_Orscm7QDybMo7TcKZFWPfYi7BQFat6E4Ck783iRYeKxNY9rjSgxf3i17bxHT5TlinIpE5i8fKFs4bEIT9j-6SDHz1_3EYJL4RKdhi9UYyQQR2byhfxCW_Qt01ht8VqUSf1DK5NxLHToFUOrZ2cRjPEK6cpKHCL8kYYuH0zUdqP8H9OY46oREg8kQoK22QnCP36RWBULIiplmDGgqtRL8iHwLt8eSa0qzB7p2JdRweVGqBUxGyNe4fFdly_OaczlI9Xb')"></div>
+                    <div>
+                        <h3 class="font-bold text-white text-lg leading-tight group-hover:text-primary transition-colors">Music Master</h3>
+                        <div class="flex items-center gap-1.5 mt-1">
+                            <div class="size-2 rounded-full bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]"></div>
+                            <span class="text-xs text-gray-400 font-medium">Maintenance</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="text-gray-500 hover:text-white">
+                    <span class="material-symbols-outlined">more_vert</span>
+                </button>
+            </div>
+            <div class="flex items-center gap-4 mb-5 text-sm text-gray-400">
+                <div class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[18px]">account_tree</span>
+                    <span>5 Flows</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[18px]">group</span>
+                    <span>156 Servers</span>
+                </div>
+            </div>
+            <button class="w-full bg-dark-border hover:bg-primary text-gray-300 hover:text-white font-bold py-2 px-4 rounded-lg text-sm transition-all flex items-center justify-center gap-2">
+                <span>Manage Bot</span>
+                <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+            </button>
+        </div>
+        <button class="group bg-transparent rounded-xl border-2 border-dashed border-dark-border p-4 flex flex-col items-center justify-center gap-3 hover:border-primary hover:bg-dark-card/50 transition-all cursor-pointer min-h-[180px]">
+            <div class="size-12 rounded-full bg-dark-border flex items-center justify-center text-gray-500 group-hover:bg-primary group-hover:text-white group-hover:scale-110 transition-all shadow-lg group-hover:shadow-primary/25">
+                <span class="material-symbols-outlined text-[28px]">add</span>
+            </div>
+            <span class="font-bold text-gray-400 group-hover:text-white transition-colors">Add New Bot</span>
+        </button>
+    </div>
+</section>
+
+<section>
+    <h2 class="text-xl font-bold text-white mb-4">Recent Activity</h2>
+    <div class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead class="bg-dark-surface text-gray-400 font-medium border-b border-dark-border">
+                    <tr>
+                        <th class="px-6 py-3">Bot</th>
+                        <th class="px-6 py-3">Action</th>
+                        <th class="px-6 py-3">Time</th>
+                        <th class="px-6 py-3 text-right">Details</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-dark-border">
+                    <tr class="hover:bg-dark-surface transition-colors">
+                        <td class="px-6 py-4 font-medium text-white flex items-center gap-2">
+                            <div class="size-6 rounded bg-indigo-500 shadow-sm"></div>
+                            Moderation Bot
+                        </td>
+                        <td class="px-6 py-4 text-gray-300">Updated "Welcome Flow"</td>
+                        <td class="px-6 py-4 text-gray-500 text-xs">2 mins ago</td>
+                        <td class="px-6 py-4 text-right">
+                            <button class="text-primary hover:text-white transition-colors hover:underline">View</button>
+                        </td>
+                    </tr>
+                    <tr class="hover:bg-dark-surface transition-colors">
+                        <td class="px-6 py-4 font-medium text-white flex items-center gap-2">
+                            <div class="size-6 rounded bg-pink-500 shadow-sm"></div>
+                            Music Master
+                        </td>
+                        <td class="px-6 py-4 text-gray-300">Connected to server "Gaming Hub"</td>
+                        <td class="px-6 py-4 text-gray-500 text-xs">1 hour ago</td>
+                        <td class="px-6 py-4 text-right">
+                            <button class="text-primary hover:text-white transition-colors hover:underline">View</button>
+                        </td>
+                    </tr>
+                    <tr class="hover:bg-dark-surface transition-colors">
+                        <td class="px-6 py-4 font-medium text-white flex items-center gap-2">
+                            <div class="size-6 rounded bg-indigo-500 shadow-sm"></div>
+                            Moderation Bot
+                        </td>
+                        <td class="px-6 py-4 text-gray-300">New error logged in "Anti-Spam"</td>
+                        <td class="px-6 py-4 text-gray-500 text-xs">3 hours ago</td>
+                        <td class="px-6 py-4 text-right">
+                            <button class="text-primary hover:text-white transition-colors hover:underline">View</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="px-6 py-3 bg-dark-surface border-t border-dark-border text-center">
+            <button class="text-sm font-medium text-gray-500 hover:text-white transition-colors">View All Activity</button>
+        </div>
+    </div>
+</section>

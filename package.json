@@ -1,0 +1,24 @@
+{
+  "name": "discord-bot-panel",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n \"API,WEB\" -c \"blue,green\" \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
+    "start": "concurrently -n \"API,WEB\" -c \"blue,green\" \"npm run start -w apps/api\" \"npm run start -w apps/web\"",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
