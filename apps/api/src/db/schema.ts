@@ -1,69 +1,69 @@
-import { mysqlTable, serial, varchar, text, timestamp, boolean, json, mysqlEnum } from 'drizzle-orm/mysql-core';
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
 // ----------------------------------------------------------------------------
 // Better-Auth Tables
 // ----------------------------------------------------------------------------
 
-export const user = mysqlTable("user", {
-	id: varchar("id", { length: 36 }).primaryKey(),
+export const user = sqliteTable("user", {
+	id: text("id").primaryKey(),
 	name: text("name").notNull(),
-	email: varchar("email", { length: 255 }).notNull().unique(),
-	emailVerified: boolean("emailVerified").notNull(),
+	email: text("email").notNull().unique(),
+	emailVerified: integer("emailVerified", { mode: "boolean" }).notNull(),
 	image: text("image"),
-	createdAt: timestamp("createdAt").notNull(),
-	updatedAt: timestamp("updatedAt").notNull()
+	createdAt: integer("createdAt", { mode: "timestamp" }).notNull(),
+	updatedAt: integer("updatedAt", { mode: "timestamp" }).notNull()
 });
 
-export const session = mysqlTable("session", {
-	id: varchar("id", { length: 36 }).primaryKey(),
-	expiresAt: timestamp("expiresAt").notNull(),
+export const session = sqliteTable("session", {
+	id: text("id").primaryKey(),
+	expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull(),
 	ipAddress: text("ipAddress"),
 	userAgent: text("userAgent"),
-	userId: varchar("userId", { length: 36 }).notNull().references(() => user.id)
+	userId: text("userId").notNull().references(() => user.id)
 });
 
-export const account = mysqlTable("account", {
-	id: varchar("id", { length: 36 }).primaryKey(),
+export const account = sqliteTable("account", {
+	id: text("id").primaryKey(),
 	accountId: text("accountId").notNull(),
 	providerId: text("providerId").notNull(),
-	userId: varchar("userId", { length: 36 }).notNull().references(() => user.id),
+	userId: text("userId").notNull().references(() => user.id),
 	accessToken: text("accessToken"),
 	refreshToken: text("refreshToken"),
 	idToken: text("idToken"),
-	expiresAt: timestamp("expiresAt"),
+	expiresAt: integer("expiresAt", { mode: "timestamp" }),
 	password: text("password")
 });
 
-export const verification = mysqlTable("verification", {
-	id: varchar("id", { length: 36 }).primaryKey(),
+export const verification = sqliteTable("verification", {
+	id: text("id").primaryKey(),
 	identifier: text("identifier").notNull(),
 	value: text("value").notNull(),
-	expiresAt: timestamp("expiresAt").notNull()
+	expiresAt: integer("expiresAt", { mode: "timestamp" }).notNull()
 });
 
 // ----------------------------------------------------------------------------
 // Application Tables
 // ----------------------------------------------------------------------------
 
-export const bots = mysqlTable('bots', {
-  id: varchar('id', { length: 36 }).primaryKey(),
-  userId: varchar('userId', { length: 36 }).notNull().references(() => user.id),
+export const bots = sqliteTable('bots', {
+	id: text('id').primaryKey(),
+	userId: text('userId').notNull().references(() => user.id),
   token: text('token').notNull(), // Encrypted
-  name: varchar('name', { length: 255 }).notNull(),
-  status: mysqlEnum('status', ['online', 'offline', 'error']).default('offline'),
-  config: json('config'),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow()
+	name: text('name').notNull(),
+	status: text('status', { enum: ['online', 'offline', 'error'] }).default('offline'),
+	config: text('config', { mode: 'json' }),
+	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+	updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
 });
 
-export const flows = mysqlTable('flows', {
-  id: varchar('id', { length: 36 }).primaryKey(),
-  botId: varchar('botId', { length: 36 }).notNull().references(() => bots.id, { onDelete: 'cascade' }),
-  name: varchar('name', { length: 255 }).notNull(),
-  triggerType: varchar('triggerType', { length: 50 }).notNull(), // e.g., 'message_create'
-  nodes: json('nodes').notNull(), // SvelteFlow nodes
-  edges: json('edges').notNull(), // SvelteFlow edges
-  published: boolean('published').default(false),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow()
+export const flows = sqliteTable('flows', {
+	id: text('id').primaryKey(),
+	botId: text('botId').notNull().references(() => bots.id, { onDelete: 'cascade' }),
+	name: text('name').notNull(),
+	triggerType: text('triggerType').notNull(), // e.g., 'message_create'
+	nodes: text('nodes', { mode: 'json' }).notNull(), // SvelteFlow nodes
+	edges: text('edges', { mode: 'json' }).notNull(), // SvelteFlow edges
+	published: integer('published', { mode: 'boolean' }).default(false),
+	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+	updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
 });

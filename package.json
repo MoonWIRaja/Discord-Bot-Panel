@@ -16,7 +16,8 @@
     "concurrently": "^9.1.2"
   },
   "dependencies": {
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.41.0"
   },
   "keywords": [],
   "author": "",

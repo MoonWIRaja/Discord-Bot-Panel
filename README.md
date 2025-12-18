@@ -37,55 +37,12 @@
 
 Before you begin, ensure you have the following installed:
 
-### Required Software
-
 | Software | Version | Download |
 |----------|---------|----------|
 | **Node.js** | v18.0.0+ | [nodejs.org](https://nodejs.org/) |
-| **MySQL** | v8.0+ | [mysql.com](https://dev.mysql.com/downloads/) |
 | **Git** | Latest | [git-scm.com](https://git-scm.com/) |
 
-### Installing Prerequisites
-
-#### Windows
-
-```powershell
-# Install Node.js (using winget)
-winget install OpenJS.NodeJS.LTS
-
-# Install MySQL (using winget)
-winget install Oracle.MySQL
-
-# Or download MySQL Installer from:
-# https://dev.mysql.com/downloads/installer/
-```
-
-#### macOS
-
-```bash
-# Install Node.js
-brew install node@20
-
-# Install MySQL
-brew install mysql
-
-# Start MySQL service
-brew services start mysql
-```
-
-#### Linux (Ubuntu/Debian)
-
-```bash
-# Install Node.js
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# Install MySQL
-sudo apt-get install mysql-server
-
-# Start MySQL service
-sudo systemctl start mysql
-```
+> 💡 **No external database required!** This project uses **SQLite** which is file-based and works out of the box.
 
 ---
 
@@ -147,12 +104,6 @@ PUBLIC_API_URL=http://localhost:4000
 PUBLIC_WEB_URL=http://localhost:5173
 
 # ==============================================
-# DATABASE (MySQL)
-# ==============================================
-# Format: mysql://user:password@host:port/database
-DATABASE_URL=mysql://root:your_password@localhost:3306/discord_bot_panel
-
-# ==============================================
 # AUTHENTICATION (Better-Auth)
 # ==============================================
 # Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
@@ -184,62 +135,35 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ## 🗄️ Database Setup
 
-### Step 1: Start MySQL Service
+This project uses **SQLite** - a file-based database that requires no external server!
 
-#### Windows
-```powershell
-# Start MySQL service
-net start MySQL80
-```
-
-#### macOS
-```bash
-brew services start mysql
-```
-
-#### Linux
-```bash
-sudo systemctl start mysql
-```
-
-### Step 2: Create Database
+### Initialize Database
 
 ```bash
-# Connect to MySQL
-mysql -u root -p
-
-# In MySQL shell, run:
-CREATE DATABASE discord_bot_panel;
-
-# (Optional) Create a dedicated user
-CREATE USER 'botpanel'@'localhost' IDENTIFIED BY 'your_password';
-GRANT ALL PRIVILEGES ON discord_bot_panel.* TO 'botpanel'@'localhost';
-FLUSH PRIVILEGES;
-
-# Exit MySQL
-exit
+# Push schema to create database tables
+npm run db:push -w apps/api
 ```
 
-### Step 3: Update DATABASE_URL
+That's it! The database file `data.db` will be created in `apps/api/` directory.
 
-If you created a dedicated user, update your `.env`:
-
-```env
-DATABASE_URL=mysql://botpanel:your_password@localhost:3306/discord_bot_panel
-```
-
-### Step 4: Run Database Migrations
+### Database Commands
 
 ```bash
+# Push schema changes to database
+npm run db:push -w apps/api
+
 # Generate migrations
 npm run db:generate -w apps/api
 
-# Apply migrations
-npm run db:migrate -w apps/api
-
-# (Optional) View database in Drizzle Studio
+# Open Drizzle Studio (visual database viewer)
 npm run db:studio -w apps/api
 ```
+
+### Database File Location
+
+The SQLite database is stored at: `apps/api/data.db`
+
+> 💡 **Backup**: To backup your database, simply copy the `data.db` file!
 
 ---
 
@@ -313,19 +237,6 @@ npm run build
 npm run start
 ```
 
-### Database Commands
-
-```bash
-# Push schema changes to database
-npm run db:push -w apps/api
-
-# Generate migrations
-npm run db:generate -w apps/api
-
-# Open Drizzle Studio (visual database viewer)
-npm run db:studio -w apps/api
-```
-
 ---
 
 ## 📁 Project Structure
@@ -342,7 +253,7 @@ discord-bot-panel/
 │   │   ├── src/
 │   │   │   ├── index.ts        # Entry point
 │   │   │   ├── db/
-│   │   │   │   ├── schema.ts   # Drizzle schema
+│   │   │   │   ├── schema.ts   # Drizzle schema (SQLite)
 │   │   │   │   └── index.ts    # DB connection
 │   │   │   ├── lib/
 │   │   │   │   └── auth.ts     # Better-Auth config
@@ -353,7 +264,8 @@ discord-bot-panel/
 │   │   │   │   └── flow.routes.ts
 │   │   │   └── services/
 │   │   │       └── bot.service.ts
-│   │   ├── drizzle.config.ts   # Drizzle config
+│   │   ├── data.db             # SQLite database file
+│   │   ├── drizzle.config.mjs  # Drizzle config
 │   │   ├── tsconfig.json
 │   │   └── package.json
 │   │
@@ -420,15 +332,6 @@ lsof -i :4000
 kill -9 <PID>
 ```
 
-#### MySQL Connection Failed
-
-1. Ensure MySQL service is running
-2. Verify `DATABASE_URL` in `.env`
-3. Check if database exists:
-   ```bash
-   mysql -u root -p -e "SHOW DATABASES;"
-   ```
-
 #### PowerShell Script Execution Error
 
 If you see `npm.ps1 cannot be loaded`:
@@ -450,14 +353,12 @@ npm.cmd install
 2. Ensure `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` are correct
 3. Check `BETTER_AUTH_URL` matches your API URL
 
-#### Migration Fails
+#### Database Issues
 
 ```bash
-# Verify connection
-npm run db:generate -w apps/api
-
-# If tables exist but migration fails:
-# You might need to manually drop tables if this is a fresh setup
+# If database is corrupted, delete and recreate:
+rm apps/api/data.db
+npm run db:push -w apps/api
 ```
 
 ---
