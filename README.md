@@ -231,8 +231,11 @@ DATABASE_URL=mysql://botpanel:your_password@localhost:3306/discord_bot_panel
 ### Step 4: Run Database Migrations
 
 ```bash
-# Push schema to database
-npm run db:push -w apps/api
+# Generate migrations
+npm run db:generate -w apps/api
+
+# Apply migrations
+npm run db:migrate -w apps/api
 
 # (Optional) View database in Drizzle Studio
 npm run db:studio -w apps/api
@@ -447,14 +450,14 @@ npm.cmd install
 2. Ensure `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` are correct
 3. Check `BETTER_AUTH_URL` matches your API URL
 
-#### Schema Push Fails
+#### Migration Fails
 
 ```bash
-# Check if you can connect to MySQL
-mysql -u root -p
+# Verify connection
+npm run db:generate -w apps/api
 
-# Verify your DATABASE_URL format
-# Must be: mysql://user:password@host:port/database
+# If tables exist but migration fails:
+# You might need to manually drop tables if this is a fresh setup
 ```
 
 ---
