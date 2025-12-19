@@ -58,8 +58,10 @@ export const verification = sqliteTable("verification", {
 export const bots = sqliteTable('bots', {
 	id: text('id').primaryKey(),
 	userId: text('userId').notNull().references(() => user.id),
-  token: text('token').notNull(), // Encrypted
+	token: text('token').notNull().unique(), // Encrypted, unique to prevent duplicates
+	clientId: text('client_id'), // Discord Bot ID
 	name: text('name').notNull(),
+	avatar: text('avatar'),
 	status: text('status', { enum: ['online', 'offline', 'error'] }).default('offline'),
 	config: text('config', { mode: 'json' }),
 	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
@@ -76,4 +78,13 @@ export const flows = sqliteTable('flows', {
 	published: integer('published', { mode: 'boolean' }).default(false),
 	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
 	updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
+});
+
+// Bot collaborators - users who can manage a bot
+export const botCollaborators = sqliteTable('bot_collaborators', {
+	id: text('id').primaryKey(),
+	botId: text('botId').notNull().references(() => bots.id, { onDelete: 'cascade' }),
+	userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+	role: text('role', { enum: ['owner', 'editor', 'viewer'] }).default('editor'),
+	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
 });

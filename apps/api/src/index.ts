@@ -4,10 +4,12 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createServer } from 'http';
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth.js";
 import { botRoutes } from "./routes/bot.routes.js";
 import { flowRoutes } from "./routes/flow.routes.js";
+import { initializeSocketServer } from "./services/collaboration.service.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +18,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 const app = express();
+const httpServer = createServer(app);
 const PORT = process.env.API_PORT || 3000;
 
 // Parse allowed origins from env
@@ -63,7 +66,11 @@ app.all('/api/auth', (req, res) => {
 app.use("/api/bots", express.json(), botRoutes);
 app.use("/api/flows", express.json(), flowRoutes);
 
-app.listen(PORT, () => {
+// Initialize Socket.io for real-time collaboration
+initializeSocketServer(httpServer);
+
+httpServer.listen(PORT, () => {
   console.log(`[API] Server is running on port ${PORT}`);
   console.log(`[API] Auth routes: /api/auth/*`);
+  console.log(`[API] Socket.io enabled for real-time collaboration`);
 });

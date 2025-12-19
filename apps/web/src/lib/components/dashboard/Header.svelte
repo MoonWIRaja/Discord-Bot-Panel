@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { useSession } from '$lib/auth';
+    const session = useSession();
 </script>
 
 <header class="h-16 bg-dark-surface border-b border-dark-border flex items-center justify-between px-6 shrink-0 z-10">
@@ -16,9 +18,19 @@
             <span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-dark-surface"></span>
         </button>
         <div class="h-8 w-px bg-dark-border mx-1"></div>
-        <button class="flex items-center gap-2 text-sm font-bold text-gray-300 hover:text-white transition-colors">
-            <span>Help</span>
-            <span class="material-symbols-outlined text-[20px]">help</span>
-        </button>
+        {#if $session.data}
+            <a href="/settings/profile" class="flex items-center gap-3 group">
+                {#if $session.data.user.image}
+                    <div class="size-9 rounded-full bg-cover bg-center ring-2 ring-dark-border group-hover:ring-primary/50 transition-all" style="background-image: url('{$session.data.user.image}')"></div>
+                {:else}
+                    <div class="size-9 rounded-full bg-gray-700 flex items-center justify-center ring-2 ring-dark-border group-hover:ring-primary/50 transition-all">
+                        <span class="text-white font-bold text-sm">{$session.data.user.name.charAt(0)}</span>
+                    </div>
+                {/if}
+                <span class="text-sm font-medium text-gray-400 group-hover:text-white transition-colors hidden lg:block">{$session.data.user.name}</span>
+            </a>
+        {:else}
+            <div class="size-9 rounded-full bg-white/5 animate-pulse"></div>
+        {/if}
     </div>
 </header>

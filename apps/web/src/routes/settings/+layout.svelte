@@ -1,69 +1,82 @@
 <script lang="ts">
     import { page } from '$app/stores';
+    import { useSession, signOut } from '$lib/auth';
     let { children } = $props();
     let currentPath = $derived($page.url.pathname);
+    const session = useSession();
+
+    async function handleSignOut() {
+        await signOut();
+        window.location.href = '/login';
+    }
 </script>
 
-<div class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white antialiased overflow-hidden h-screen flex flex-col">
-    <!-- Header -->
-    <header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-bot-border bg-white dark:bg-[#18181b] px-6 py-3 shrink-0 z-20">
-        <div class="flex items-center gap-4">
-            <a href="/dashboard" class="size-8 text-bot-primary flex items-center justify-center bg-bot-primary/10 rounded-lg hover:bg-bot-primary/20 transition-colors">
-                <span class="material-symbols-outlined text-2xl">smart_toy</span>
+<div class="bg-dark-base font-display text-white antialiased overflow-hidden h-screen flex">
+    <!-- Main Sidebar -->
+    <aside class="w-64 bg-dark-surface border-r border-dark-border flex flex-col h-full shrink-0">
+        <div class="h-16 flex items-center px-6 gap-3 text-white border-b border-dark-border">
+            <a href="/dashboard" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                <div class="size-8 rounded-lg bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined text-[20px]">smart_toy</span>
+                </div>
+                <h1 class="text-lg font-bold tracking-tight">BotPanel</h1>
             </a>
-            <h2 class="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">BotPanel</h2>
         </div>
-        <div class="flex flex-1 justify-end gap-6">
-            <div class="flex gap-2">
-                <button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-slate-100 dark:bg-bot-border text-slate-900 dark:text-white transition-colors hover:bg-slate-200 dark:hover:bg-bot-surface">
-                    <span class="material-symbols-outlined">notifications</span>
-                </button>
-                <button class="flex size-10 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-slate-100 dark:bg-bot-border text-slate-900 dark:text-white transition-colors hover:bg-slate-200 dark:hover:bg-bot-surface">
-                    <span class="material-symbols-outlined">help</span>
-                </button>
-            </div>
-            <div class="bg-center bg-no-repeat bg-cover rounded-full size-10 ring-2 ring-slate-200 dark:ring-bot-border" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA8yhdsfa2533TJaea4WGrH243s5Vdn6J4X2b0duXi982TYr5AX2XbN-POQ-v7UrVXU20rg4q1947WPk0Uyiry4XfHZy20bj_QK6_C1W3qRexNXQ9MfPXudApFy0qtItq__yBT3YE74ot9mJcdvAjoC-QVZM8m2HoI6mSFVXrOSn5JB9ovwc-ACZgWE_xKMQvNgPrqDbanD2CkGSO21ZlqeJt0vHaZcL0O7cO1d9Ta_El8v1xZRRUSW96fAJOSHTpXHR022J-T0IYwY");'></div>
+        <div class="flex-1 flex flex-col p-4 overflow-y-auto">
+            <p class="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3 px-3">Settings</p>
+            <nav class="flex flex-col gap-1">
+                <a href="/settings/profile" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {currentPath === '/settings/profile' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}">
+                    <span class="material-symbols-outlined text-[20px]">person</span>
+                    Profile
+                </a>
+                <a href="/settings/account" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {currentPath === '/settings/account' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}">
+                    <span class="material-symbols-outlined text-[20px]">shield</span>
+                    Account Security
+                </a>
+                <a href="/settings/billing" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {currentPath === '/settings/billing' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}">
+                    <span class="material-symbols-outlined text-[20px]">credit_card</span>
+                    Billing
+                </a>
+                <a href="/settings/api-keys" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {currentPath === '/settings/api-keys' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}">
+                    <span class="material-symbols-outlined text-[20px]">api</span>
+                    API Keys
+                </a>
+            </nav>
         </div>
-    </header>
+        <div class="p-4 border-t border-dark-border space-y-2">
+            <a href="/dashboard" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+                <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+                Back to Dashboard
+            </a>
+            <button onclick={handleSignOut} class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors">
+                <span class="material-symbols-outlined text-[18px]">logout</span>
+                Sign Out
+            </button>
+        </div>
+    </aside>
     
-    <div class="flex flex-1 overflow-hidden">
-        <!-- Sidebar -->
-        <aside class="w-64 lg:w-72 border-r border-slate-200 dark:border-bot-border bg-white dark:bg-[#18181b] flex-col hidden md:flex shrink-0">
-            <div class="flex h-full flex-col justify-between p-4">
-                <div class="flex flex-col gap-4">
-                    <div class="px-2">
-                        <h1 class="text-slate-500 dark:text-[#a1a1aa] text-xs font-bold uppercase tracking-wider leading-normal">Settings</h1>
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-full min-w-0 bg-dark-base relative">
+        <!-- Header -->
+        <header class="h-16 bg-dark-surface border-b border-dark-border flex items-center justify-between px-6 shrink-0">
+            <h2 class="text-lg font-bold">Settings</h2>
+            <div class="flex items-center gap-4">
+                {#if $session.data}
+                    <div class="flex items-center gap-3">
+                        {#if $session.data.user.image}
+                            <div class="size-9 rounded-full bg-cover bg-center ring-2 ring-dark-border" style="background-image: url('{$session.data.user.image}')"></div>
+                        {:else}
+                            <div class="size-9 rounded-full bg-gray-700 flex items-center justify-center ring-2 ring-dark-border">
+                                <span class="text-white font-bold text-sm">{$session.data.user.name.charAt(0)}</span>
+                            </div>
+                        {/if}
+                        <span class="text-sm text-gray-400">{$session.data.user.name}</span>
                     </div>
-                    <nav class="flex flex-col gap-1">
-                        <a href="/settings/profile" class="flex items-center gap-3 px-3 py-2.5 rounded-lg {currentPath === '/settings/profile' ? 'bg-bot-primary/10 text-bot-primary' : 'text-slate-600 dark:text-[#a1a1aa] hover:bg-slate-100 dark:hover:bg-bot-surface'} transition-colors group">
-                            <span class="material-symbols-outlined {currentPath === '/settings/profile' ? 'fill-1' : ''} group-hover:text-slate-900 dark:group-hover:text-white transition-colors">person</span>
-                            <p class="text-sm font-medium leading-normal group-hover:text-slate-900 dark:group-hover:text-white transition-colors {currentPath === '/settings/profile' ? 'font-bold' : ''}">Profile</p>
-                        </a>
-                        <a href="/settings/account" class="flex items-center gap-3 px-3 py-2.5 rounded-lg {currentPath === '/settings/account' ? 'bg-bot-primary/10 text-bot-primary' : 'text-slate-600 dark:text-[#a1a1aa] hover:bg-slate-100 dark:hover:bg-bot-surface'} transition-colors group">
-                            <span class="material-symbols-outlined {currentPath === '/settings/account' ? 'fill-1' : ''} group-hover:text-slate-900 dark:group-hover:text-white transition-colors">shield</span>
-                            <p class="text-sm font-medium leading-normal group-hover:text-slate-900 dark:group-hover:text-white transition-colors {currentPath === '/settings/account' ? 'font-bold' : ''}">Account Security</p>
-                        </a>
-                         <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-[#a1a1aa] hover:bg-slate-100 dark:hover:bg-bot-surface transition-colors group">
-                            <span class="material-symbols-outlined group-hover:text-slate-900 dark:group-hover:text-white transition-colors">credit_card</span>
-                            <p class="text-sm font-medium leading-normal group-hover:text-slate-900 dark:group-hover:text-white transition-colors">Billing</p>
-                        </a>
-                         <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-[#a1a1aa] hover:bg-slate-100 dark:hover:bg-bot-surface transition-colors group">
-                            <span class="material-symbols-outlined group-hover:text-slate-900 dark:group-hover:text-white transition-colors">api</span>
-                            <p class="text-sm font-medium leading-normal group-hover:text-slate-900 dark:group-hover:text-white transition-colors">API Keys</p>
-                        </a>
-                    </nav>
-                </div>
-                <div class="px-2 pb-2">
-                    <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-red-500/10 text-red-500 hover:text-red-600 transition-colors" href="/login">
-                        <span class="material-symbols-outlined">logout</span>
-                        <p class="text-sm font-medium leading-normal">Log Out</p>
-                    </a>
-                </div>
+                {/if}
             </div>
-        </aside>
-        
-        <main class="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark p-4 md:p-8 lg:px-12 xl:px-24">
-             {@render children()}
-        </main>
-    </div>
+        </header>
+        <div class="flex-1 overflow-y-auto p-6 lg:p-10">
+            {@render children()}
+        </div>
+    </main>
 </div>

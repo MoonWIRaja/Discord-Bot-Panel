@@ -1,7 +1,45 @@
 <script lang="ts">
+    import { useSession, signOut } from '$lib/auth';
+    import { scale } from 'svelte/transition';
+    import { onMount } from 'svelte';
+    import { api } from '$lib/api';
+    import { page } from '$app/stores';
+    
+    const session = useSession();
+    let showProfileMenu = $state(false);
+    let botCount = $state(0);
+    const maxBots = 5; // Free plan limit
+    
+    // Get current path for active state
+    let currentPath = $derived($page.url.pathname);
+    
+    // Check if user is admin (you can adjust this logic based on your user model)
+    let isAdmin = $derived($session.data?.user?.email === 'admin@example.com' || $session.data?.user?.role === 'admin');
+
+    onMount(async () => {
+        try {
+            const bots = await api.getBots();
+            botCount = bots.length;
+        } catch (e) {
+            console.error("Failed to fetch bot count:", e);
+        }
+    });
+
+    async function handleSignOut() {
+        await signOut();
+        window.location.href = '/login';
+    }
+    
+    // Helper to check active state
+    function isActive(path: string): boolean {
+        if (path === '/dashboard') {
+            return currentPath === '/dashboard';
+        }
+        return currentPath.startsWith(path);
+    }
 </script>
 
-<aside class="w-64 bg-dark-surface border-r border-dark-border text-muted flex flex-col h-full shrink-0 transition-all duration-300">
+<aside class="w-64 bg-dark-surface border-r border-dark-border text-muted flex flex-col h-full shrink-0 transition-all duration-300 relative z-20">
     <div class="h-16 flex items-center px-6 gap-3 text-white border-b border-dark-border">
         <div class="size-8 rounded-lg bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
             <span class="material-symbols-outlined text-[20px]">smart_toy</span>
@@ -10,54 +48,122 @@
     </div>
     <div class="flex-1 flex flex-col gap-2 p-4 overflow-y-auto">
         <p class="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 px-3">Menu</p>
-        <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors bg-primary text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]" href="/dashboard">
+        <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {isActive('/dashboard') ? 'bg-primary text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'text-gray-400 hover:bg-white/5 hover:text-white'}" href="/dashboard">
             <span class="material-symbols-outlined text-[20px]">dashboard</span>
             Dashboard
         </a>
-        <div class="flex flex-col gap-1">
-            <a class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-white/5 hover:text-white group" href="/bots">
-                <div class="flex items-center gap-3">
-                    <span class="material-symbols-outlined text-[20px]">robot_2</span>
-                    My Bots
-                </div>
-                <span class="material-symbols-outlined text-[16px] group-hover:rotate-180 transition-transform">expand_more</span>
-            </a>
-        </div>
-        <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-white/5 hover:text-white" href="/templates">
+        <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {isActive('/bots') ? 'bg-primary text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'text-gray-400 hover:bg-white/5 hover:text-white'}" href="/bots">
+            <span class="material-symbols-outlined text-[20px]">robot_2</span>
+            My Bots
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {isActive('/templates') ? 'bg-primary text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'text-gray-400 hover:bg-white/5 hover:text-white'}" href="/templates">
             <span class="material-symbols-outlined text-[20px]">grid_view</span>
             Templates
         </a>
-        <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-white/5 hover:text-white" href="/settings">
-            <span class="material-symbols-outlined text-[20px]">settings</span>
-            Settings
-        </a>
-        <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-white/5 hover:text-white" href="/docs">
-            <span class="material-symbols-outlined text-[20px]">menu_book</span>
-            Docs
-        </a>
+        {#if isAdmin}
+            <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {isActive('/settings') ? 'bg-primary text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'text-gray-400 hover:bg-white/5 hover:text-white'}" href="/settings">
+                <span class="material-symbols-outlined text-[20px]">settings</span>
+                Settings
+            </a>
+        {/if}
     </div>
-    <div class="p-4 border-t border-dark-border">
-        <div class="bg-dark-card rounded-xl p-4 flex flex-col gap-3 border border-dark-border">
-            <div class="flex items-center gap-3">
-                <div class="size-10 rounded-full bg-cover bg-center ring-2 ring-dark-border" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAqWcdi7KDUxT9mBA-AXZR3YmfanQqU32-I1dRDfkBgfldWzRA4VSlS3doWypVRM4roqmzECD8WDvuk6D0ZEJ9ZxRxM8LZ2oMDgp5n2oQnen6jU047_Yq8STRpBlz8QyupGdV4oL3GSkexrmPqFLKHi3EC3cqrsr2ArmMBSXxRNN1PS5GojocwfN3tLL3pr1PXwvj5A6WEtrKCgmSCvjjnEnvGlKTMUCHB81h2kqtUfRg0B8scDGjFMYGBj8yjvX9ZqZszITu91xY5N')"></div>
-                <div class="flex flex-col overflow-hidden">
-                    <span class="text-white text-sm font-medium truncate">Alex Smith</span>
-                    <span class="text-xs text-gray-500 truncate">alex@example.com</span>
+    <div class="p-4 border-t border-dark-border relative">
+        {#if $session.data}
+            <button onclick={() => showProfileMenu = !showProfileMenu} class="w-full bg-dark-card rounded-xl p-3 flex flex-col gap-3 border border-dark-border hover:border-primary/50 transition-colors text-left group relative">
+                <div class="flex items-center gap-3">
+                    {#if $session.data.user.image}
+                         <div class="size-10 rounded-full bg-cover bg-center ring-2 ring-dark-border group-hover:ring-primary/50 transition-all" style="background-image: url('{$session.data.user.image}')"></div>
+                    {:else}
+                         <div class="size-10 rounded-full bg-gray-700 flex items-center justify-center ring-2 ring-dark-border group-hover:ring-primary/50 transition-all">
+                             <span class="text-white font-bold">{$session.data.user.name.charAt(0)}</span>
+                         </div>
+                    {/if}
+                    <div class="flex flex-col overflow-hidden flex-1">
+                        <span class="text-white text-sm font-medium truncate">{$session.data.user.name}</span>
+                        <span class="text-xs text-gray-500 truncate">{$session.data.user.email}</span>
+                    </div>
+                     <span class="material-symbols-outlined text-gray-500 group-hover:text-white transition-colors">unfold_more</span>
                 </div>
+                <!-- Plan Mini Bar -->
+                <div class="flex flex-col gap-1.5 mt-1">
+                    <div class="flex justify-between items-end text-[10px] uppercase font-bold tracking-wider">
+                        <span class="text-indigo-400">Free Plan</span>
+                        <span class="text-gray-500">{botCount}/{maxBots} Bots</span>
+                    </div>
+                    <div class="h-1 w-full bg-dark-border rounded-full overflow-hidden">
+                        <div class="h-full bg-indigo-500 rounded-full" style="width: {Math.min(botCount / maxBots * 100, 100)}%"></div>
+                    </div>
+                </div>
+            </button>
+        {:else}
+            <div class="animate-pulse flex items-center gap-3 p-2">
+                <div class="size-10 rounded-full bg-white/5"></div>
+                 <div class="flex-1 space-y-2">
+                    <div class="h-3 w-20 bg-white/5 rounded"></div>
+                    <div class="h-2 w-16 bg-white/5 rounded"></div>
+                 </div>
             </div>
-            <div class="flex flex-col gap-1.5">
-                <div class="flex justify-between items-end text-xs">
-                    <span class="text-white font-medium">Pro Plan</span>
-                    <span class="text-gray-400">8/20 Bots</span>
-                </div>
-                <div class="h-1.5 w-full bg-dark-border rounded-full overflow-hidden">
-                    <div class="h-full w-[40%] bg-primary rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
-                </div>
-            </div>
-        </div>
-        <button class="flex items-center gap-2 text-xs font-medium text-gray-500 hover:text-white transition-colors mt-3 px-2">
-            <span class="material-symbols-outlined text-[16px]">logout</span>
-            Sign out
-        </button>
+        {/if}
     </div>
 </aside>
+
+{#if showProfileMenu && $session.data}
+    <!-- Backdrop -->
+    <button type="button" class="fixed inset-0 z-30 cursor-default" onclick={() => showProfileMenu = false} aria-label="Close menu"></button>
+    
+    <!-- Profile Popover -->
+    <div transition:scale={{duration: 200, start: 0.95}} class="fixed bottom-24 left-6 w-80 bg-[#151515] border border-gray-800 rounded-2xl shadow-2xl z-40 overflow-hidden flex flex-col">
+        <!-- Header -->
+        <div class="p-6 bg-gradient-to-br from-indigo-900/20 to-transparent border-b border-white/5">
+             <div class="flex items-center gap-4">
+                 {#if $session.data.user.image}
+                    <img src={$session.data.user.image} alt="Profile" class="size-16 rounded-full border-4 border-[#151515] shadow-xl"/>
+                 {:else}
+                    <div class="size-16 rounded-full bg-gray-700 flex items-center justify-center border-4 border-[#151515] shadow-xl">
+                        <span class="text-2xl font-bold text-white">{$session.data.user.name.charAt(0)}</span>
+                    </div>
+                 {/if}
+                 <div>
+                     <h3 class="font-bold text-white text-lg">{$session.data.user.name}</h3>
+                     <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500 text-white uppercase tracking-wider">Free Plan</span>
+                 </div>
+             </div>
+        </div>
+
+        <!-- Plan Upsell -->
+        <div class="p-5 border-b border-white/5">
+            <div class="flex justify-between items-center mb-3">
+                <span class="text-sm font-medium text-gray-300">Plan Usage</span>
+            </div>
+             <div class="space-y-3">
+                 <div>
+                     <div class="flex justify-between text-xs mb-1">
+                         <span class="text-gray-400">Bots</span>
+                         <span class="text-white">{botCount} / {maxBots}</span>
+                     </div>
+                     <div class="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
+                         <div class="h-full bg-indigo-500 rounded-full" style="width: {Math.min(botCount / maxBots * 100, 100)}%"></div>
+                     </div>
+                 </div>
+             </div>
+             
+             <button class="mt-4 w-full py-2 bg-white text-black font-bold text-sm rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2">
+                 <span class="material-symbols-outlined text-[18px]">bolt</span>
+                 Upgrade to Pro
+             </button>
+        </div>
+
+        <!-- Menu Links -->
+        <div class="p-2 space-y-1">
+            <a href="/settings/profile" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+                <span class="material-symbols-outlined text-[18px]">settings</span>
+                Settings
+            </a>
+            <div class="h-px bg-white/5 my-1 mx-2"></div>
+            <button onclick={handleSignOut} class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors">
+                <span class="material-symbols-outlined text-[18px]">logout</span>
+                Sign Out
+            </button>
+        </div>
+    </div>
+{/if}

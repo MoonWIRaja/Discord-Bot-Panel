@@ -1,91 +1,124 @@
 <script lang="ts">
+    import { useSession } from '$lib/auth';
+    
+    const session = useSession();
+    
+    // Notification preferences (local only)
+    let emailUpdates = $state(true);
+
+    function openDiscord() {
+        window.open('https://discord.com/app', '_blank');
+    }
+
+    function refreshProfile() {
+        // Force session refresh by reloading the page
+        window.location.reload();
+    }
 </script>
 
-<div class="mx-auto max-w-[800px] flex flex-col gap-8 pb-10">
+<div class="mx-auto max-w-3xl flex flex-col gap-8 pb-10">
     <div class="flex flex-col gap-2">
-        <h1 class="text-slate-900 dark:text-white text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em]">Profile Settings</h1>
-        <p class="text-slate-500 dark:text-[#a1a1aa] text-base font-normal leading-normal">Manage your personal identity, avatar, and notification preferences.</p>
+        <h1 class="text-white text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em]">Profile</h1>
+        <p class="text-gray-500 text-base font-normal leading-normal">Your profile is synced from Discord. Changes made on Discord will appear here.</p>
     </div>
 
-    <!-- Avatar Section -->
-    <div class="bg-white dark:bg-[#18181b] rounded-xl border border-slate-200 dark:border-bot-border p-6 shadow-sm">
-        <div class="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
-            <div class="flex gap-5 items-center">
-                <div class="relative group cursor-pointer">
-                    <div class="bg-center bg-no-repeat bg-cover rounded-full size-24 md:size-28 ring-4 ring-slate-100 dark:border-bot-border" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC0KcNj8gRRbeoudzNd6t31JPO-x3etvO4qoxoP-fG-vTIItGTgRRhMKUMiPOS8nsbvZtKLa4vSrbR-kFuqnMwTq4ha2wTlLlw9hT_pc0y8iDRPr9oYYaQ0OWOpnBRFhOzcfe8PXRHoqtt7jZJceaUsomcYFGnRrU7e-yZJ5UsNPQ3291SJt9qCnqG_kXVIN7jpqI9fSTRlRPu8W-noDz1oBQY4ts0HQC8kNUnb0REaxvKGkmCNIxREwEE-hpud7Sot6vlmzGPFcN0l");'></div>
-                    <div class="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                        <span class="material-symbols-outlined">edit</span>
+    {#if $session.data}
+        <!-- Discord Profile Card -->
+        <div class="bg-gradient-to-br from-[#5865F2]/20 to-dark-card rounded-xl border border-[#5865F2]/30 p-6">
+            <div class="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                <div class="relative">
+                    {#if $session.data.user.image}
+                        <div class="bg-center bg-no-repeat bg-cover rounded-full size-24 md:size-28 ring-4 ring-[#5865F2]/30" style='background-image: url("{$session.data.user.image}");'></div>
+                    {:else}
+                        <div class="size-24 md:size-28 rounded-full bg-gray-700 ring-4 ring-[#5865F2]/30 flex items-center justify-center">
+                            <span class="text-4xl font-bold text-white">{$session.data.user.name?.charAt(0) || '?'}</span>
+                        </div>
+                    {/if}
+                    <div class="absolute -bottom-1 -right-1 size-8 rounded-full bg-[#5865F2] flex items-center justify-center">
+                        <span class="material-symbols-outlined text-white text-[16px]">check</span>
                     </div>
                 </div>
-                <div class="flex flex-col gap-1">
-                    <p class="text-slate-900 dark:text-white text-xl font-bold leading-tight">Your Avatar</p>
-                    <p class="text-slate-500 dark:text-[#a1a1aa] text-sm font-normal">We support PNGs, JPGs under 10MB</p>
+                <div class="flex-1 text-center md:text-left">
+                    <h2 class="text-2xl font-bold text-white mb-1">{$session.data.user.name}</h2>
+                    <p class="text-gray-400 text-sm mb-4">{$session.data.user.email}</p>
+                    <div class="flex flex-wrap gap-2 justify-center md:justify-start">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-[#5865F2]/20 text-[#5865F2] rounded-full text-xs font-bold">
+                            <span class="material-symbols-outlined text-[14px]">verified</span>
+                            Discord Connected
+                        </span>
+                    </div>
                 </div>
             </div>
-            <div class="flex gap-3 w-full md:w-auto">
-                <button class="flex-1 md:flex-none cursor-pointer items-center justify-center rounded-lg h-10 px-6 bg-slate-200 dark:bg-bot-border hover:bg-slate-300 dark:hover:bg-bot-surface text-slate-900 dark:text-white text-sm font-bold transition-colors">
-                    Remove
-                </button>
-                <button class="flex-1 md:flex-none cursor-pointer items-center justify-center rounded-lg h-10 px-6 bg-bot-primary hover:bg-bot-primary-hover text-white text-sm font-bold transition-colors shadow-lg shadow-bot-primary/25">
-                    Upload New
-                </button>
+        </div>
+
+        <!-- Info Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-dark-card rounded-xl border border-dark-border p-5">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="size-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-primary text-[20px]">badge</span>
+                    </div>
+                    <span class="text-sm font-bold text-gray-500 uppercase tracking-wider">Display Name</span>
+                </div>
+                <p class="text-white text-lg font-medium">{$session.data.user.name}</p>
+            </div>
+            <div class="bg-dark-card rounded-xl border border-dark-border p-5">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="size-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-primary text-[20px]">mail</span>
+                    </div>
+                    <span class="text-sm font-bold text-gray-500 uppercase tracking-wider">Email</span>
+                </div>
+                <p class="text-white text-lg font-medium">{$session.data.user.email}</p>
             </div>
         </div>
-    </div>
 
-    <!-- Personal Information -->
-    <div class="bg-white dark:bg-[#18181b] rounded-xl border border-slate-200 dark:border-bot-border p-6 shadow-sm flex flex-col gap-6">
-        <h2 class="text-slate-900 dark:text-white text-lg font-bold">Personal Information</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <label class="flex flex-col gap-2">
-                <span class="text-slate-900 dark:text-white text-sm font-medium">Display Name</span>
-                <input class="w-full rounded-lg border border-slate-300 dark:border-bot-border bg-slate-50 dark:bg-bot-bg-dark text-slate-900 dark:text-white focus:border-bot-primary focus:ring-1 focus:ring-bot-primary h-12 px-4 placeholder:text-slate-400 dark:placeholder:text-[#a1a1aa] text-base transition-colors" type="text" value="BotMaster_99"/>
-            </label>
-            <label class="flex flex-col gap-2 relative">
-                <span class="text-slate-900 dark:text-white text-sm font-medium flex justify-between">
-                    Discord Username
-                    <span class="text-xs font-bold text-green-500 flex items-center gap-1 uppercase tracking-wider bg-green-500/10 px-2 py-0.5 rounded-full">
-                        <span class="material-symbols-outlined text-[14px]">check_circle</span> Linked
-                    </span>
-                </span>
-                <div class="relative">
-                    <input class="w-full rounded-lg border border-slate-200 dark:border-bot-border bg-slate-100 dark:bg-bot-surface text-slate-500 dark:text-gray-400 h-12 px-4 pl-10 text-base cursor-not-allowed select-none" readonly value="user#1234"/>
-                    <span class="material-symbols-outlined absolute left-3 top-3 text-slate-400 dark:text-gray-500">chat</span>
+        <!-- How to Update -->
+        <div class="bg-dark-card rounded-xl border border-dark-border p-6">
+            <div class="flex items-start gap-4">
+                <div class="size-12 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-amber-500 text-[24px]">info</span>
                 </div>
-            </label>
-            <label class="flex flex-col gap-2 md:col-span-2">
-                <span class="text-slate-900 dark:text-white text-sm font-medium">Email Address</span>
-                <input class="w-full rounded-lg border border-slate-300 dark:border-bot-border bg-slate-50 dark:bg-bot-bg-dark text-slate-900 dark:text-white focus:border-bot-primary focus:ring-1 focus:ring-bot-primary h-12 px-4 placeholder:text-slate-400 dark:placeholder:text-[#a1a1aa] text-base transition-colors" type="email" value="hello@example.com"/>
-                <p class="text-xs text-slate-500 dark:text-[#a1a1aa]">We'll verify this email if you change it.</p>
-            </label>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold mb-2">Want to update your profile?</h3>
+                    <p class="text-gray-400 text-sm mb-4">
+                        Your profile is linked to your Discord account. To change your name, avatar, or email, update them in Discord and then refresh this page.
+                    </p>
+                    <div class="flex flex-wrap gap-3">
+                        <button onclick={openDiscord} class="inline-flex items-center gap-2 px-4 py-2 bg-[#5865F2] hover:bg-[#4752C4] text-white rounded-lg text-sm font-medium transition-colors">
+                            <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+                            Open Discord
+                        </button>
+                        <button onclick={refreshProfile} class="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-colors">
+                            <span class="material-symbols-outlined text-[18px]">refresh</span>
+                            Refresh Profile
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <!-- Notifications -->
-    <div class="bg-white dark:bg-[#18181b] rounded-xl border border-slate-200 dark:border-bot-border p-6 shadow-sm flex flex-col gap-6">
-        <h2 class="text-slate-900 dark:text-white text-lg font-bold">Notification Preferences</h2>
-        <div class="flex flex-col gap-4 divide-y divide-slate-100 dark:divide-bot-border">
-             <div class="flex items-center justify-between py-2">
+        <!-- Notification Preferences (local) -->
+        <div class="bg-dark-card rounded-xl border border-dark-border p-6">
+            <h3 class="text-white font-bold mb-4">Notification Preferences</h3>
+            <div class="flex items-center justify-between py-2">
                 <div class="flex flex-col gap-0.5">
-                    <p class="text-slate-900 dark:text-white text-sm font-bold">Email Updates</p>
-                    <p class="text-slate-500 dark:text-[#a1a1aa] text-sm">Receive digest emails about your bot's performance.</p>
+                    <p class="text-white text-sm font-bold">Email Updates</p>
+                    <p class="text-gray-500 text-sm">Receive digest emails about your bot's performance.</p>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
-                    <input checked class="sr-only peer" type="checkbox"/>
-                    <div class="w-11 h-6 bg-slate-200 dark:bg-bot-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-bot-primary"></div>
+                    <input bind:checked={emailUpdates} class="sr-only peer" type="checkbox"/>
+                    <div class="w-11 h-6 bg-dark-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </label>
             </div>
         </div>
-    </div>
-
-     <!-- Footer Actions -->
-    <div class="flex flex-col-reverse md:flex-row justify-end gap-4 mt-2">
-        <button class="px-6 py-3 rounded-lg text-slate-700 dark:text-white font-bold text-sm bg-transparent hover:bg-slate-200 dark:hover:bg-bot-border transition-colors">
-            Cancel
-        </button>
-        <button class="px-8 py-3 rounded-lg bg-bot-primary hover:bg-bot-primary-hover text-white font-bold text-sm shadow-lg shadow-bot-primary/30 transition-all transform active:scale-95 flex items-center justify-center gap-2">
-            <span class="material-symbols-outlined text-[18px]">save</span>
-            Save Changes
-        </button>
-    </div>
+    {:else}
+        <div class="animate-pulse space-y-6">
+            <div class="h-40 bg-white/5 rounded-xl"></div>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="h-24 bg-white/5 rounded-xl"></div>
+                <div class="h-24 bg-white/5 rounded-xl"></div>
+            </div>
+        </div>
+    {/if}
 </div>
