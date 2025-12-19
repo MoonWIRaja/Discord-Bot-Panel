@@ -1,7 +1,10 @@
 import { io, Socket } from 'socket.io-client';
 import { browser } from '$app/environment';
 
-const API_URL = browser ? (import.meta.env.VITE_PUBLIC_API_URL || 'http://localhost:4000') : '';
+const isLocal = browser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const API_URL = browser
+    ? (import.meta.env.VITE_PUBLIC_API_URL || (isLocal ? 'http://localhost:4000' : window.location.origin))
+    : '';
 
 // Use globalThis to persist socket across module re-imports
 declare global {
@@ -41,13 +44,13 @@ export interface RemoteUser {
     selectedNodeId?: string | null;
 }
 
-export function connectToStudio(botId: string, user: { id: string; name: string; image?: string }) {
+export function connectSocket() {
     if (!browser) return null;
 
     // Disconnect existing socket if any
     const existingSocket = getSocket();
     if (existingSocket) {
-        console.log('[Socket] Disconnecting existing socket');
+        if (existingSocket.connected) return existingSocket;
         existingSocket.disconnect();
     }
 
@@ -64,7 +67,6 @@ export function connectToStudio(botId: string, user: { id: string; name: string;
 
     socket.on('connect', () => {
         console.log('[Socket] Connected! Socket ID:', socket.id);
-        socket.emit('join-studio', { botId, user });
     });
 
     socket.on('disconnect', () => {
@@ -74,6 +76,22 @@ export function connectToStudio(botId: string, user: { id: string; name: string;
     socket.on('connect_error', (error) => {
         console.error('[Socket] Connection error:', error);
     });
+
+    return socket;
+}
+
+export function connectToStudio(botId: string, user: { id: string; name: string; image?: string }) {
+    const socket = connectSocket();
+
+    if (socket) {
+        if (socket.connected) {
+            socket.emit('join-studio', { botId, user });
+        } else {
+            socket.on('connect', () => {
+                socket.emit('join-studio', { botId, user });
+            });
+        }
+    }
 
     return socket;
 }

@@ -106,4 +106,28 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Delete all flows for a bot (before saving new merged flow)
+router.delete('/bot/:botId', async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const { botId } = req.params;
+
+    // Verify access (owner OR collaborator)
+    const bot = await BotService.getBot(botId, user.id);
+
+    if (!bot) {
+      res.status(404).json({ error: 'Bot not found or no access' });
+      return;
+    }
+
+    // Delete all flows for this bot
+    await db.delete(flows).where(eq(flows.botId, botId));
+
+    res.json({ success: true, message: 'All flows deleted' });
+  } catch (error) {
+    console.error("Error deleting flows:", error);
+    res.status(500).json({ error: 'Failed to delete flows' });
+  }
+});
+
 export const flowRoutes = router;

@@ -2,17 +2,27 @@ import { Client, GatewayIntentBits, Events, Message, REST, Routes, SlashCommandB
 import { db } from '../db/index.js';
 import { bots, flows } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
+import VoiceService from './voice.service.js';
 
 // Store active bot clients
-const activeBots: Map<string, Client> = new Map();
+// const activeBots: Map<string, Client> = new Map();
 
 export class BotRuntime {
     
+    // Store active bot clients and their intervals
+    static activeBots: Map<string, Client> = new Map();
+    static monitoringIntervals: Map<string, NodeJS.Timeout> = new Map();
+    static io: any = null;
+
+    static setIO(io: any) {
+        this.io = io;
+    }
+
     // Start a bot and connect to Discord
     static async startBot(botId: string): Promise<{ success: boolean; error?: string }> {
         try {
             // Check if already running
-            if (activeBots.has(botId)) {
+            if (this.activeBots.has(botId)) {
                 console.log(`[BotRuntime] Bot ${botId} is already running`);
                 return { success: true };
             }
@@ -34,9 +44,17 @@ export class BotRuntime {
                     GatewayIntentBits.GuildMessages,
                     GatewayIntentBits.MessageContent,
                     GatewayIntentBits.GuildMessageReactions,
-                    GatewayIntentBits.GuildMembers
+                    GatewayIntentBits.GuildMembers,
+                    GatewayIntentBits.GuildVoiceStates
                 ]
             });
+
+            // Attach logger
+            (client as any).logger = {
+                log: (level: 'info' | 'warn' | 'error' | 'debug', message: string) => {
+                    this.sendLog(botId, level, message);
+                }
+            };
 
             // Handle ready event
             client.once(Events.ClientReady, async (readyClient) => {
@@ -56,7 +74,7 @@ export class BotRuntime {
                 if (!interaction.isChatInputCommand()) return;
                 
                 try {
-                    await this.handleSlashCommand(botId, interaction);
+                    await this.handleSlashCommand(botId, interaction, client);
                 } catch (e) {
                     console.error(`[BotRuntime] Error handling slash command for bot ${botId}:`, e);
                     if (interaction.replied || interaction.deferred) {
@@ -68,7 +86,7 @@ export class BotRuntime {
             });
 
             // Handle messages - execute flows (for prefix commands)
-            client.on(Events.MessageCreate, async (message: Message) => {
+            client.on(Events.MessageCreate, async (message) => {
                 if (message.author.bot) return;
                 
                 try {
@@ -86,7 +104,7 @@ export class BotRuntime {
             // Handle disconnect
             client.on(Events.ShardDisconnect, async () => {
                 console.log(`[BotRuntime] Bot ${botId} disconnected`);
-                activeBots.delete(botId);
+                this.activeBots.delete(botId);
                 await db.update(bots)
                     .set({ status: 'offline', updatedAt: new Date() })
                     .where(eq(bots.id, botId));
@@ -96,12 +114,16 @@ export class BotRuntime {
             await client.login(token);
             
             // Store the client
-            activeBots.set(botId, client);
+            this.activeBots.set(botId, client);
+
+            // Start Monitoring Loop
+            this.startMonitoring(botId, client);
 
             return { success: true };
 
         } catch (error: any) {
             console.error(`[BotRuntime] Failed to start bot ${botId}:`, error);
+            this.sendLog(botId, 'error', `Failed to start bot: ${error.message}`);
             
             // Update status to error
             await db.update(bots)
@@ -112,6 +134,119 @@ export class BotRuntime {
         }
     }
 
+
+
+
+
+
+
+    // ...
+
+    // Send log to socket
+    static sendLog(botId: string, level: 'info' | 'warn' | 'error' | 'debug', message: string) {
+        if (this.io) {
+            console.log(`[BotRuntime] 📤 Emitting log for ${botId}: ${message} (Socket clients: ${this.io.engine.clientsCount})`);
+            this.io.to(`bot-${botId}`).emit('bot:log', {
+                timestamp: new Date().toISOString(),
+                level,
+                message
+            });
+        } else {
+            console.warn('[BotRuntime] IO not initialized, cannot send log to socket');
+        }
+    }
+
+    // Monitoring Loop for Live Notification
+    static startMonitoring(botId: string, client: any) {
+        console.log(`[BotRuntime] 🔴 Starting monitoring loop for ${botId}`);
+        this.sendLog(botId, 'info', 'Starting live monitoring loop');
+
+        // Initial check
+        this.checkLiveStatus(botId, client);
+
+        // Loop every 60 seconds (Simulated 5 mins)
+        const interval = setInterval(() => {
+            this.checkLiveStatus(botId, client);
+        }, 60 * 1000); // 1 minute
+
+        this.monitoringIntervals.set(botId, interval);
+    }
+
+    static async checkLiveStatus(botId: string, client: any) {
+        if (!client.liveProfiles || !client.liveConfig?.channelId) return;
+
+        // this.sendLog(botId, 'debug', `Checking live status for ${client.liveProfiles.length} profiles...`);
+
+        const channel = await client.channels.fetch(client.liveConfig?.channelId).catch(() => null);
+        if (!channel || !channel.isTextBased()) return;
+
+        let updated = false;
+
+        for (const profile of client.liveProfiles) {
+            let isLive = false;
+
+            try {
+                if (profile.platform === 'youtube') {
+                    // Quick fetch check (Simulated for safety without API key)
+                    // In production, parse RSS: https://www.youtube.com/feeds/videos.xml?channel_id=CHANNEL_ID
+                    const response = await fetch(profile.url);
+                    const text = await response.text();
+                    isLive = text.includes('"text":"LIVE"');
+                } else if (profile.platform === 'twitch') {
+                    // Simulated random live status for demo
+                    // isLive = Math.random() > 0.8; 
+                } else if (profile.platform === 'tiktok') {
+                    // Basic heuristic: check for "live-video" class or similar in HTML
+                    try {
+                        const response = await fetch(profile.url);
+                        const text = await response.text();
+                        isLive = text.includes('"status":2') || text.includes('live-video');
+                    } catch (e) {
+                        isLive = false;
+                    }
+                }
+
+                // Temporary Logic: If detected live and not already notified
+                if (isLive && !profile.lastStatus) {
+                    await channel.send({
+                        content: `🔴 **LIVE ALERT!**\n\n**${profile.url}** is now LIVE on ${profile.platform}!`,
+                        components: []
+                    });
+                    profile.lastStatus = true;
+                    updated = true;
+                    this.sendLog(botId, 'info', `Live alert sent for ${profile.url}`);
+                    console.log(`[Monitor] Alert sent for ${profile.url}`);
+                } else if (!isLive && profile.lastStatus) {
+                    profile.lastStatus = false;
+                    updated = true;
+                    this.sendLog(botId, 'info', `${profile.url} went offline`);
+                }
+            } catch (e: any) {
+                console.error(`[Monitor] Error checking ${profile.url}:`, e);
+                this.sendLog(botId, 'error', `Error checking ${profile.url}: ${e.message}`);
+            }
+        }
+
+        // Save state if updated (to persist "lastStatus")
+        if (updated) {
+            await this.saveBotConfig(botId, client);
+        }
+    }
+
+    static async saveBotConfig(botId: string, client: any) {
+        try {
+            await db.update(bots).set({
+                config: {
+                    liveProfiles: client.liveProfiles,
+                    liveConfig: client.liveConfig
+                },
+                updatedAt: new Date()
+            }).where(eq(bots.id, botId));
+        } catch (e) {
+            console.error('Failed to save bot config', e);
+        }
+    }
+
     // Register slash commands with Discord API
     static async registerSlashCommands(botId: string, token: string, clientId: string) {
         try {
@@ -119,6 +254,7 @@ export class BotRuntime {
             const botFlows = await db.select().from(flows).where(eq(flows.botId, botId));
             
             const commands: any[] = [];
+            const registeredNames = new Set<string>(); // Track registered command names
             
             for (const flow of botFlows) {
                 if (!flow.published) continue;
@@ -140,14 +276,69 @@ export class BotRuntime {
                     const commandName = (trigger.data?.commandName || trigger.data?.filter || 'test').toLowerCase().replace(/[^a-z0-9]/g, '');
                     const commandDescription = trigger.data?.commandDescription || trigger.data?.label || 'A bot command';
                     
+                    // Skip if already registered (prevents duplicates)
+                    if (registeredNames.has(commandName)) {
+                        console.log(`[BotRuntime] Skipping duplicate command: /${commandName}`);
+                        continue;
+                    }
+
                     if (commandName && commandName.length >= 1 && commandName.length <= 32) {
-                        commands.push(
-                            new SlashCommandBuilder()
-                                .setName(commandName)
-                                .setDescription(commandDescription.substring(0, 100))
-                                .toJSON()
-                        );
-                        console.log(`[BotRuntime] Registered slash command: /${commandName}`);
+                        const builder = new SlashCommandBuilder()
+                            .setName(commandName)
+                            .setDescription(commandDescription.substring(0, 100));
+
+                        // Add options if defined
+                        if (trigger.data?.options && Array.isArray(trigger.data.options)) {
+                            for (const opt of trigger.data.options) {
+                                if (!opt.name || !opt.description) continue;
+
+                                const type = opt.type?.toUpperCase() || 'STRING';
+                                const required = !!opt.required;
+
+                                switch (type) {
+                                    case 'STRING':
+                                        builder.addStringOption(option =>
+                                            option.setName(opt.name)
+                                                .setDescription(opt.description)
+                                                .setRequired(required));
+                                        break;
+                                    case 'INTEGER':
+                                        builder.addIntegerOption(option =>
+                                            option.setName(opt.name)
+                                                .setDescription(opt.description)
+                                                .setRequired(required));
+                                        break;
+                                    case 'BOOLEAN':
+                                        builder.addBooleanOption(option =>
+                                            option.setName(opt.name)
+                                                .setDescription(opt.description)
+                                                .setRequired(required));
+                                        break;
+                                    case 'USER':
+                                        builder.addUserOption(option =>
+                                            option.setName(opt.name)
+                                                .setDescription(opt.description)
+                                                .setRequired(required));
+                                        break;
+                                    case 'CHANNEL':
+                                        builder.addChannelOption(option =>
+                                            option.setName(opt.name)
+                                                .setDescription(opt.description)
+                                                .setRequired(required));
+                                        break;
+                                    case 'ROLE':
+                                        builder.addRoleOption(option =>
+                                            option.setName(opt.name)
+                                                .setDescription(opt.description)
+                                                .setRequired(required));
+                                        break;
+                                }
+                            }
+                        }
+
+                        commands.push(builder.toJSON());
+                        registeredNames.add(commandName);
+                        console.log(`[BotRuntime] Registered slash command: /${commandName} with options`);
                     }
                 }
             }
@@ -169,7 +360,7 @@ export class BotRuntime {
             console.log(`[BotRuntime] Registering ${commands.length} slash commands...`);
             
             // Get all guilds the bot is in and register commands to each
-            const client = activeBots.get(botId);
+            const client = this.activeBots.get(botId);
             if (client && client.guilds.cache.size > 0) {
                 // Register to each guild for instant appearance
                 for (const [guildId, guild] of client.guilds.cache) {
@@ -199,7 +390,7 @@ export class BotRuntime {
     }
 
     // Handle slash command interaction
-    static async handleSlashCommand(botId: string, interaction: ChatInputCommandInteraction) {
+    static async handleSlashCommand(botId: string, interaction: ChatInputCommandInteraction, client: Client) {
         const commandName = interaction.commandName;
         console.log(`[BotRuntime] Slash command received: /${commandName}`);
 
@@ -242,7 +433,7 @@ export class BotRuntime {
                 const actionNode = nodes.find(n => n.id === edge.target);
                 if (!actionNode) continue;
 
-                await this.executeSlashAction(actionNode, interaction);
+                await this.executeSlashAction(actionNode, interaction, client);
             }
             
             return; // Only execute first matching flow
@@ -253,13 +444,33 @@ export class BotRuntime {
     }
 
     // Execute action for slash command
-    static async executeSlashAction(node: any, interaction: ChatInputCommandInteraction) {
+    static async executeSlashAction(node: any, interaction: ChatInputCommandInteraction, client: Client) {
         const label = node.data?.label || '';
         const messageContent = node.data?.messageContent || '';
+        const nodeType = node.type || '';
+        const code = node.data?.code || '';
 
-        console.log(`[BotRuntime] Executing slash action: ${label}`);
+        console.log(`[BotRuntime] Executing slash action: ${label} (type: ${nodeType})`);
 
         try {
+            // Handle code nodes
+            if (nodeType === 'code' && code) {
+                console.log(`[BotRuntime] Executing custom code...`);
+
+                // Create async function with context
+                // Create async function with context
+                const AsyncFunction = Object.getPrototypeOf(async function () { }).constructor;
+                // Removed 'VoiceService' from args to avoid conflict with user code "const VoiceService ="
+                const fn = new AsyncFunction('interaction', 'client', 'fetch', code);
+
+                // Attach VoiceService to client for code access
+                (client as any).voiceService = VoiceService;
+
+                // Execute the code
+                await fn(interaction, client, fetch);
+                return;
+            }
+
             const reply = this.replaceSlashVariables(messageContent || `${label} executed!`, interaction);
             
             switch (label.toLowerCase()) {
@@ -281,7 +492,7 @@ export class BotRuntime {
         } catch (error) {
             console.error(`[BotRuntime] Failed to execute slash action ${label}:`, error);
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ content: 'Failed to execute command', ephemeral: true });
+                await interaction.reply({ content: `Error: ${error}`, ephemeral: true });
             }
         }
     }
@@ -299,11 +510,11 @@ export class BotRuntime {
     // Stop a bot
     static async stopBot(botId: string): Promise<{ success: boolean; error?: string }> {
         try {
-            const client = activeBots.get(botId);
+            const client = this.activeBots.get(botId);
             
             if (client) {
                 client.destroy();
-                activeBots.delete(botId);
+                this.activeBots.delete(botId);
                 console.log(`[BotRuntime] Bot ${botId} stopped`);
             }
 
@@ -328,7 +539,7 @@ export class BotRuntime {
 
     // Check if bot is running
     static isRunning(botId: string): boolean {
-        const client = activeBots.get(botId);
+        const client = this.activeBots.get(botId);
         return client?.isReady() || false;
     }
 
@@ -437,13 +648,13 @@ export class BotRuntime {
 
     // Get all running bots
     static getRunningBots(): string[] {
-        return Array.from(activeBots.keys());
+        return Array.from(this.activeBots.keys());
     }
 
     // Cleanup all bots on shutdown
     static async shutdownAll() {
         console.log(`[BotRuntime] Shutting down all bots...`);
-        for (const [botId, client] of activeBots) {
+        for (const [botId, client] of this.activeBots) {
             try {
                 client.destroy();
                 await db.update(bots)
@@ -453,7 +664,7 @@ export class BotRuntime {
                 console.error(`[BotRuntime] Error shutting down bot ${botId}:`, e);
             }
         }
-        activeBots.clear();
+        this.activeBots.clear();
         console.log(`[BotRuntime] All bots shut down`);
     }
 }

@@ -207,6 +207,16 @@ export const api = {
         return data;
     },
 
+    async deleteFlows(botId: string) {
+        const res = await fetch(`${API_Base}/api/flows/bot/${botId}`, {
+            method: 'DELETE',
+            headers: await this.getAuthHeaders(),
+            credentials: 'include'
+        });
+        if (!res.ok) throw new Error('Failed to delete flows');
+        return await res.json();
+    },
+
     async getDashboardStats() {
         const bots = await this.getBots();
         return {
@@ -215,7 +225,27 @@ export const api = {
              events: 0 
         };
     },
-    
+
+    // Template methods
+    async getTemplates() {
+        const res = await fetch(`${API_Base}/api/templates`, {
+            credentials: 'include'
+        });
+        if (!res.ok) throw new Error('Failed to fetch templates');
+        return await res.json();
+    },
+
+    async importTemplate(templateId: string, botId: string) {
+        const res = await fetch(`${API_Base}/api/templates/${templateId}/import/${botId}`, {
+            method: 'POST',
+            headers: await this.getAuthHeaders(),
+            credentials: 'include'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to import template');
+        return data;
+    },
+
     async getAuthHeaders() {
         return {
             'Content-Type': 'application/json'

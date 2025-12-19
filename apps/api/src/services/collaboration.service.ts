@@ -36,6 +36,12 @@ function getNextColor(): string {
     return color;
 }
 
+// Store active studio rooms
+let ioInstance: SocketServer | null = null;
+export function getIO(): SocketServer | null {
+    return ioInstance;
+}
+
 export function initializeSocketServer(httpServer: HttpServer) {
     // Parse allowed origins from env
     const allowedOrigins = process.env.API_ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'];
@@ -49,6 +55,8 @@ export function initializeSocketServer(httpServer: HttpServer) {
         path: '/socket.io'
     });
 
+    ioInstance = io;
+
     console.log('[Socket.io] Server initialized');
 
     io.on('connection', (socket: Socket) => {
@@ -56,6 +64,13 @@ export function initializeSocketServer(httpServer: HttpServer) {
 
         let currentRoom: string | null = null;
         let currentUser: User | null = null;
+
+        // Join bot logs room (for dashboard)
+        socket.on('join-bot-logs', (botId: string) => {
+            const logsRoom = `bot-${botId}`;
+            socket.join(logsRoom);
+            console.log(`[Socket.io] Client ${socket.id} joined logs for bot ${botId}`);
+        });
 
         // Join a studio room
         socket.on('join-studio', (data: { botId: string; user: { id: string; name: string; image?: string } }) => {

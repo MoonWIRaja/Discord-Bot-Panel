@@ -88,3 +88,18 @@ export const botCollaborators = sqliteTable('bot_collaborators', {
 	role: text('role', { enum: ['owner', 'editor', 'viewer'] }).default('editor'),
 	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
 });
+
+// Flow templates - pre-built bot flows that can be imported
+export const templates = sqliteTable('templates', {
+	id: text('id').primaryKey(),
+	name: text('name').notNull(),
+	description: text('description').notNull(),
+	category: text('category', { enum: ['notification', 'music', 'utility', 'moderation', 'fun'] }).notNull(),
+	icon: text('icon').notNull(),
+	color: text('color').notNull(),
+	nodes: text('nodes', { mode: 'json' }).notNull(),
+	edges: text('edges', { mode: 'json' }).notNull(),
+	isDefault: integer('is_default', { mode: 'boolean' }).default(true),
+	downloads: integer('downloads').default(0),
+	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
+});

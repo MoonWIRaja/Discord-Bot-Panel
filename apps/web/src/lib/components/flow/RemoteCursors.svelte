@@ -60,7 +60,7 @@
     Activity-based cursor display
     Converts flow coordinates to screen coordinates for proper display
 -->
-{#if browser}
+{#if browser && activities && activities.size > 0}
     {#each Array.from(activities.entries()) as [socketId, activity]}
         {#if activity.type === 'dragging-node' && activity.nodePosition}
             {@const screenCenter = getCenterScreen(activity.nodePosition)}

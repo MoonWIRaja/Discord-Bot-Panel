@@ -22,6 +22,7 @@
     import CustomCodeNode from '$lib/components/flow/CustomCodeNode.svelte';
     import CustomEdge from '$lib/components/flow/CustomEdge.svelte';
     import RemoteCursors from '$lib/components/flow/RemoteCursors.svelte';
+    import EdgeActionsOverlay from '$lib/components/flow/EdgeActionsOverlay.svelte';
     
     // Socket.io for real-time collaboration  
     import { 
@@ -45,6 +46,7 @@
     let saving = $state(false);
     let lastSaved = $state<Date | null>(null);
     let hasChanges = $state(false);
+    let isLoaded = $state(false);
 
     // Auth session
     const session = useSession();
@@ -76,18 +78,21 @@
     // Save confirmation popup
     let showSaveConfirm = $state(false);
 
+    // Edge action overlay state
+    let hoveredEdge = $state<{ edgeId: string; centerX: number; centerY: number } | null>(null);
+    let showEdgeDropdown = $state(false);
+    let showEdgeConfirm = $state(false);
+    let keepOverlayOpen = $state(false);
+
+    // Templates state
+    let availableTemplates = $state<any[]>([]);
+    let importingTemplate = $state<string | null>(null);
+
     // Drag state
     let draggedNodeDef = $state<any>(null);
 
-    // SvelteFlow state
-    let nodes = $state<Node[]>([
-        {
-            id: '1',
-            type: 'trigger',
-            position: { x: 100, y: 200 },
-            data: { label: 'Message Created', icon: 'chat', color: '#22c55e' }
-        }
-    ]);
+    // SvelteFlow state - start with empty canvas
+    let nodes = $state<Node[]>([]);
     let edges = $state<Edge[]>([]);
 
     const nodeTypes: NodeTypes = {
@@ -113,9 +118,7 @@
             { type: 'action', label: 'Send Reply', icon: 'reply', color: '#3b82f6' },
             { type: 'action', label: 'Send DM', icon: 'mail', color: '#ec4899' },
             { type: 'action', label: 'Add Role', icon: 'admin_panel_settings', color: '#10b981' },
-            { type: 'action', label: 'Remove Role', icon: 'person_remove', color: '#ef4444' },
-            { type: 'action', label: 'Ban User', icon: 'block', color: '#dc2626' },
-            { type: 'action', label: 'Kick User', icon: 'logout', color: '#f97316' }
+            { type: 'action', label: 'Remove Role', icon: 'person_remove', color: '#ef4444' }
         ],
         logic: [
             { type: 'action', label: 'Delay', icon: 'schedule', color: '#64748b' },
@@ -129,23 +132,110 @@
             const bot = await api.getBot(id);
             botName = bot.name;
             
-            const flows = await api.getFlows(id);
-            if (flows.length > 0 && flows[0]) {
-                try {
-                    const nodeData = flows[0] as any;
-                    const savedNodes = JSON.parse(nodeData.nodes || '[]');
-                    const savedEdges = JSON.parse(nodeData.edges || '[]');
-                    if (savedNodes.length > 0) {
-                        nodes = savedNodes;
-                        edges = savedEdges;
+            const flowsData = await api.getFlows(id);
+            
+            // Handle empty flows - keep default nodes
+            if (!flowsData || !Array.isArray(flowsData) || flowsData.length === 0) {
+                console.log('[loadFlow] No flows found, using default');
+                return;
+            }
+            
+            try {
+                let allNodes: any[] = [];
+                let allEdges: any[] = [];
+                
+                // Merge nodes and edges from all flows
+                for (let i = 0; i < flowsData.length; i++) {
+                    const flow = flowsData[i] as any;
+                    if (!flow || !flow.nodes) continue;
+                    
+                    const flowNodes = JSON.parse(flow.nodes || '[]');
+                    const flowEdges = JSON.parse(flow.edges || '[]');
+                    
+                    if (!Array.isArray(flowNodes)) continue;
+                    
+                    // Offset Y position for each subsequent flow to avoid overlap
+                    const yOffset = i * 600;
+                    
+                    for (const node of flowNodes) {
+                        if (!node || !node.position) continue;
+                        allNodes.push({
+                            ...node,
+                            position: { 
+                                x: node.position.x || 0, 
+                                y: (node.position.y || 0) + yOffset 
+                            }
+                        });
                     }
-                } catch (e) {
-                    console.warn("Could not parse saved flow, using default");
+                    
+                    if (Array.isArray(flowEdges)) {
+                        allEdges.push(...flowEdges);
+                    }
                 }
+                
+                // De-duplicate edges and ensure unique IDs
+                const edgeMap = new Map();
+                for (const edge of allEdges) {
+                    if (!edge || !edge.source || !edge.target) continue;
+                    
+                    // Create a unique ID based on connection
+                    // This fixes the issue where different templates use 'e1', 'e2' etc.
+                    const uniqueId = `edge_${edge.source}_${edge.target}`;
+                    
+                    // Update the edge ID
+                    const newEdge = { ...edge, id: uniqueId };
+                    
+                    const key = `${edge.source}-${edge.target}`;
+                    if (!edgeMap.has(key)) {
+                        edgeMap.set(key, newEdge);
+                    }
+                }
+                allEdges = Array.from(edgeMap.values());
+                
+                console.log('[loadFlow] Merged flows:', flowsData.length, 'Total nodes:', allNodes.length, 'Total edges:', allEdges.length);
+                
+                if (allNodes.length > 0) {
+                    nodes = allNodes;
+                    edges = allEdges;
+                }
+            } catch (e) {
+                console.warn("Could not parse saved flow, using default", e);
             }
         } catch (e) {
             console.error("Failed to load flow data", e);
         }
+        isLoaded = true;
+    }
+
+    // Load available templates
+    async function loadTemplates() {
+        try {
+            availableTemplates = await api.getTemplates();
+        } catch (e) {
+            console.error("Failed to load templates", e);
+        }
+    }
+
+    // Import template directly into current bot
+    async function importTemplateToBot(templateId: string) {
+        if (!id || importingTemplate) return;
+        importingTemplate = templateId;
+        try {
+            await api.importTemplate(templateId, id);
+            // Reload flows to show the imported template
+            await loadFlow();
+            hasChanges = true;
+        } catch (e) {
+            console.error("Failed to import template", e);
+        } finally {
+            importingTemplate = null;
+        }
+    }
+
+    // Load on init - only in browser
+    if (browser) {
+        loadFlow();
+        loadTemplates();
     }
 
     function promptSave() {
@@ -157,6 +247,10 @@
         if (!id) return;
         saving = true;
         try {
+            // Delete all existing flows first (clears imported templates)
+            await api.deleteFlows(id);
+            
+            // Save current canvas as single merged flow
             await api.saveFlow({
                 botId: id,
                 name: `${botName} Flow`,
@@ -180,19 +274,15 @@
         showSaveConfirm = false;
     }
 
-    // Handle edge connection
+    // Handle edge connection - SvelteFlow automatically adds the edge to the bound edges array
+    // We just need to broadcast to collaborators and mark changes
     function handleConnect(params: { source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }) {
-        const newEdge: Edge = {
-            id: `e${params.source}-${params.target}`,
-            source: params.source,
-            target: params.target,
-            animated: true,
-            style: 'stroke: #6366f1; stroke-width: 2px;'
-        };
-        edges = [...edges, newEdge];
         hasChanges = true;
-        // Broadcast to collaborators
-        emitEdgeConnect(newEdge);
+        // Broadcast to collaborators - find the just-added edge
+        const addedEdge = edges.find(e => e.source === params.source && e.target === params.target);
+        if (addedEdge) {
+            emitEdgeConnect(addedEdge);
+        }
     }
 
     // Handle node drag end to mark changes
@@ -523,23 +613,50 @@
     }
 
     // Edge action handlers
-    function handleEdgeDelete(e: CustomEvent<{ edgeId: string }>) {
-        edges = edges.filter(edge => edge.id !== e.detail.edgeId);
-        hasChanges = true;
+    function handleEdgeHover(e: CustomEvent<{ edgeId: string; hovering: boolean; centerX: number; centerY: number }>) {
+        if (e.detail.hovering) {
+            hoveredEdge = { 
+                edgeId: e.detail.edgeId, 
+                centerX: e.detail.centerX, 
+                centerY: e.detail.centerY 
+            };
+        } else if (!showEdgeDropdown && !showEdgeConfirm && !keepOverlayOpen) {
+            hoveredEdge = null;
+        }
     }
 
-    function handleEdgeInsertNode(e: CustomEvent<{ 
-        edgeId: string; 
-        nodeType: string;
-        nodeLabel: string;
-        nodeIcon: string;
-        nodeColor: string;
-        position: { x: number; y: number };
-    }>) {
-        const { edgeId, nodeType, nodeLabel, nodeIcon, nodeColor, position } = e.detail;
+    function doEdgeDelete() {
+        console.log('[doEdgeDelete] Called! hoveredEdge:', hoveredEdge);
+        if (!hoveredEdge) {
+            console.log('[doEdgeDelete] hoveredEdge is null, returning');
+            return;
+        }
+        const targetId = hoveredEdge.edgeId;
+        console.log('[doEdgeDelete] Deleting edge, targetId:', targetId);
+        console.log('[doEdgeDelete] Current edges:', edges.map(e => e.id));
         
-        // Find the edge to replace
-        const edge = edges.find(e => e.id === edgeId);
+        // Filter out edges matching the ID (handling xy-edge__ prefix variations)
+        edges = edges.filter(edge => {
+            const matches = edge.id === targetId || 
+                           edge.id === `xy-edge__${targetId}` ||
+                           `xy-edge__${edge.id}` === targetId ||
+                           edge.id.includes(targetId) ||
+                           targetId.includes(edge.id);
+            if (matches) console.log('[doEdgeDelete] Removing edge:', edge.id);
+            return !matches;
+        });
+        hasChanges = true;
+        
+        hoveredEdge = null;
+        showEdgeConfirm = false;
+        showEdgeDropdown = false;
+        keepOverlayOpen = false;
+    }
+
+    function doEdgeInsertNode(nodeType: string, nodeLabel: string, nodeIcon: string, nodeColor: string) {
+        if (!hoveredEdge) return;
+        
+        const edge = edges.find(e => e.id === hoveredEdge!.edgeId);
         if (!edge) return;
 
         // Create new node
@@ -547,7 +664,7 @@
         const newNode: Node = {
             id: newNodeId,
             type: nodeType,
-            position: { x: position.x - 60, y: position.y - 32 }, // Center the node
+            position: { x: hoveredEdge.centerX - 60, y: hoveredEdge.centerY - 32 },
             data: { label: nodeLabel, icon: nodeIcon, color: nodeColor }
         };
 
@@ -555,7 +672,7 @@
         nodes = [...nodes, newNode];
 
         // Replace edge with two new edges
-        edges = edges.filter(e => e.id !== edgeId);
+        edges = edges.filter(e => e.id !== hoveredEdge!.edgeId);
         const edge1: Edge = {
             id: crypto.randomUUID(),
             source: edge.source,
@@ -571,7 +688,22 @@
         edges = [...edges, edge1, edge2];
         
         hasChanges = true;
+        
+        hoveredEdge = null;
+        showEdgeDropdown = false;
     }
+
+    // Node options for edge insert
+    const edgeInsertNodes = [
+        { label: 'Send Reply', type: 'action', icon: 'reply', color: '#3b82f6' },
+        { label: 'Send DM', type: 'action', icon: 'mail', color: '#ec4899' },
+        { label: 'Add Role', type: 'action', icon: 'admin_panel_settings', color: '#10b981' },
+        { label: 'Remove Role', type: 'action', icon: 'person_remove', color: '#ef4444' },
+        { label: 'Ban User', type: 'action', icon: 'block', color: '#dc2626' },
+        { label: 'Kick User', type: 'action', icon: 'logout', color: '#f97316' },
+        { label: 'Delay', type: 'action', icon: 'schedule', color: '#64748b' },
+        { label: 'Custom Code', type: 'code', icon: 'code', color: '#f59e0b' }
+    ];
 
     onMount(() => {
         loadFlow();
@@ -585,9 +717,8 @@
             }
         }, 500);
 
-        // Edge action event listeners (using window to match CustomEdge)
-        window.addEventListener('edge-delete', handleEdgeDelete as EventListener);
-        window.addEventListener('edge-insert-node', handleEdgeInsertNode as EventListener);
+        // Edge hover event listener
+        window.addEventListener('edge-hover', handleEdgeHover as EventListener);
     });
 
     onDestroy(() => {
@@ -595,8 +726,7 @@
         if (canvasRef) {
             canvasRef.removeEventListener('mousemove', handleMouseMove as EventListener);
         }
-        window.removeEventListener('edge-delete', handleEdgeDelete as EventListener);
-        window.removeEventListener('edge-insert-node', handleEdgeInsertNode as EventListener);
+        window.removeEventListener('edge-hover', handleEdgeHover as EventListener);
     });
 </script>
 
@@ -721,6 +851,35 @@
                         {/each}
                     </div>
                 </div>
+
+                <!-- Templates -->
+                <div>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-1">Templates</h3>
+                    <div class="space-y-1.5">
+                        {#each availableTemplates as template}
+                            <button 
+                                type="button"
+                                onclick={() => importTemplateToBot(template.id)}
+                                disabled={importingTemplate === template.id}
+                                class="w-full flex items-center gap-3 p-2 rounded-lg text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors disabled:opacity-50"
+                            >
+                                <div class="size-8 rounded-lg flex items-center justify-center shrink-0" style="background: {template.color}20;">
+                                    <span class="material-symbols-outlined text-[18px]" style="color: {template.color};">{template.icon}</span>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <span class="font-medium text-xs line-clamp-1">{template.name}</span>
+                                </div>
+                                {#if importingTemplate === template.id}
+                                    <div class="size-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                                {:else}
+                                    <span class="material-symbols-outlined text-[14px] text-gray-500">add_circle</span>
+                                {/if}
+                            </button>
+                        {:else}
+                            <p class="text-xs text-gray-500 px-2">Loading templates...</p>
+                        {/each}
+                    </div>
+                </div>
             </div>
         </aside>
 
@@ -733,6 +892,7 @@
             role="application"
             aria-label="Flow canvas"
         >
+            {#if isLoaded}
             <SvelteFlow
                 bind:nodes
                 bind:edges
@@ -753,15 +913,41 @@
             >
                 <Background bgColor="#0a0a0a" gap={20} />
                 <Controls class="!bg-dark-surface !border-dark-border !rounded-lg overflow-hidden" />
+                {#if nodes && nodes.length > 0}
                 <MiniMap 
                     class="!bg-dark-surface !border !border-dark-border !rounded-lg"
                     nodeColor="#6366f1"
                     maskColor="rgba(0,0,0,0.8)"
                 />
+                {/if}
                 
+                {#if nodes.length > 0}
                 <!-- Remote Cursors - uses position from activity -->
                 <RemoteCursors activities={remoteActivities} />
+                
+                <!-- Edge Actions Overlay - uses flowToScreenPosition for proper positioning -->
+                <EdgeActionsOverlay 
+                    {hoveredEdge}
+                    showDropdown={showEdgeDropdown}
+                    showConfirm={showEdgeConfirm}
+                    onDelete={doEdgeDelete}
+                    onInsertNode={doEdgeInsertNode}
+                    onToggleDropdown={() => { showEdgeDropdown = !showEdgeDropdown; showEdgeConfirm = false; }}
+                    onShowConfirm={() => { showEdgeConfirm = true; showEdgeDropdown = false; }}
+                    onCancel={() => showEdgeConfirm = false}
+                    onClose={() => { hoveredEdge = null; showEdgeDropdown = false; showEdgeConfirm = false; keepOverlayOpen = false; }}
+                    onKeepOpen={() => { keepOverlayOpen = true; }}
+                />
+                {/if}
             </SvelteFlow>
+            {:else}
+            <div class="flex-1 flex items-center justify-center">
+                <div class="text-center">
+                    <div class="size-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-3"></div>
+                    <p class="text-gray-400">Loading flow...</p>
+                </div>
+            </div>
+            {/if}
         </div>
 
         <!-- Properties Panel -->
@@ -862,7 +1048,7 @@
                             <div>
                                 <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Reactions (Outputs)</span>
                                 <div class="space-y-2">
-                                    {#each (selectedNode.data.reactions || []) as reaction, i}
+                                    {#each (selectedNode.data.reactions as Array<{emoji: string; code: string}> || []) as reaction, i}
                                         <div class="flex items-center gap-2 bg-dark-base border border-dark-border rounded-lg px-3 py-2">
                                             <span class="text-lg">{reaction.emoji}</span>
                                             <input 
@@ -875,9 +1061,9 @@
                                             <button 
                                                 type="button"
                                                 onclick={() => {
-                                                    const reactions = [...(selectedNode.data.reactions || [])];
+                                                    const reactions = [...(selectedNode?.data.reactions as Array<{emoji: string; code: string}> || [])];
                                                     reactions.splice(i, 1);
-                                                    updateNodeData('reactions', reactions);
+                                                    updateNodeData('reactions', reactions as unknown as string);
                                                 }}
                                                 class="text-red-400 hover:text-red-300 p-1"
                                             >
@@ -899,7 +1085,7 @@
                                                 const input = e.currentTarget;
                                                 const value = input.value.trim();
                                                 if (value) {
-                                                    const reactions = [...(selectedNode.data.reactions || [])];
+                                                    const reactions = [...(selectedNode?.data.reactions as Array<{id: string; emoji: string; code: string}> || [])];
                                                     // Parse emoji code or use as-is
                                                     const emoji = value.match(/^:(\w+):$/) ? value : value;
                                                     reactions.push({ 
@@ -907,7 +1093,7 @@
                                                         code: value,
                                                         emoji: emoji.replace(/:/g, '')
                                                     });
-                                                    updateNodeData('reactions', reactions);
+                                                    updateNodeData('reactions', reactions as unknown as string);
                                                     input.value = '';
                                                 }
                                             }
@@ -919,14 +1105,14 @@
                                             const input = document.getElementById('new-reaction-input') as HTMLInputElement;
                                             const value = input?.value.trim();
                                             if (value) {
-                                                const reactions = [...(selectedNode.data.reactions || [])];
-                                                const emoji = value.match(/^:(\w+):$/) ? value : value;
-                                                reactions.push({ 
-                                                    id: crypto.randomUUID(),
-                                                    code: value,
-                                                    emoji: emoji.replace(/:/g, '')
-                                                });
-                                                updateNodeData('reactions', reactions);
+                                                const reactions = [...(selectedNode?.data.reactions as Array<{id: string; emoji: string; code: string}> || [])];
+                                            const emoji = value.match(/^:(\w+):$/) ? value : value;
+                                            reactions.push({ 
+                                                id: crypto.randomUUID(),
+                                                code: value,
+                                                emoji: emoji.replace(/:/g, '')
+                                            });
+                                            updateNodeData('reactions', reactions as unknown as string);
                                                 input.value = '';
                                             }
                                         }}
@@ -982,8 +1168,8 @@
                                 <label class="flex items-center gap-3 cursor-pointer">
                                     <input 
                                         type="checkbox"
-                                        checked={selectedNode.data.useSpecificChannel || false}
-                                        onchange={(e) => updateNodeData('useSpecificChannel', e.currentTarget.checked)}
+                                        checked={(selectedNode.data.useSpecificChannel as boolean) || false}
+                                        onchange={(e) => updateNodeData('useSpecificChannel', String(e.currentTarget.checked))}
                                         class="w-4 h-4 rounded border-dark-border bg-dark-base text-primary focus:ring-primary"
                                     />
                                     <span class="text-sm text-gray-300">Reply to specific channel</span>
@@ -1191,6 +1377,7 @@
         </button>
     </div>
 {/if}
+
 
 <style>
     :global(.svelte-flow) {

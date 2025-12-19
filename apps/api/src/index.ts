@@ -9,6 +9,7 @@ import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth.js";
 import { botRoutes } from "./routes/bot.routes.js";
 import { flowRoutes } from "./routes/flow.routes.js";
+import { templateRoutes } from "./routes/template.routes.js";
 import { initializeSocketServer } from "./services/collaboration.service.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -65,9 +66,12 @@ app.all('/api/auth', (req, res) => {
 // API routes (must be after auth to avoid conflicts)
 app.use("/api/bots", express.json(), botRoutes);
 app.use("/api/flows", express.json(), flowRoutes);
+app.use("/api/templates", express.json(), templateRoutes);
 
 // Initialize Socket.io for real-time collaboration
-initializeSocketServer(httpServer);
+export const io = initializeSocketServer(httpServer);
+import { BotRuntime } from './services/bot.runtime.js';
+BotRuntime.setIO(io);
 
 httpServer.listen(PORT, () => {
   console.log(`[API] Server is running on port ${PORT}`);
