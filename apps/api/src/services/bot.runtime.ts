@@ -3079,19 +3079,55 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                     detectedMode = AIService.detectIntent(message.content);
                     console.log(`[BotRuntime] Public chat - Detected intent: ${detectedMode}`);
 
-                    // Select model based on detected intent from provider config
-                    if (providerConfig.models && providerConfig.models[detectedMode]) {
-                        selectedModel = providerConfig.models[detectedMode];
-                    } else if (providerConfig.models && providerConfig.models.chat) {
-                        selectedModel = providerConfig.models.chat;
-                    } else {
-                        // Use default model for this provider
-                        selectedModel = AIService.getDefaultModel(genericProviderId);
+                    // Priority order for model selection:
+                    // 1. fetchedModels (validated from Studio) - filter by mode
+                    // 2. modelChat/modelCode/etc (new format individual properties)
+                    // 3. azureDeployment (for Azure providers)
+                    // 4. models.chat/models.code/etc (old format object)
+                    // 5. Default model for provider
+
+                    const fetchedModels = providerConfig.fetchedModels || [];
+                    const modeKey = `model${detectedMode.charAt(0).toUpperCase() + detectedMode.slice(1)}`; // e.g., modelChat, modelCode
+
+                    // 1. Check fetchedModels first (highest priority - validated)
+                    if (Array.isArray(fetchedModels) && fetchedModels.length > 0) {
+                        const modeModel = fetchedModels.find((m: any) =>
+                            m.modes?.includes(detectedMode) || m.modes?.includes('chat')
+                        );
+                        if (modeModel) {
+                            selectedModel = modeModel.id || modeModel.name;
+                            console.log(`[BotRuntime] Using fetchedModel: ${selectedModel}`);
+                        }
                     }
 
-                    // For Azure, use azureDeployment
-                    if (genericProviderId === 'azure' && providerConfig.azureDeployment) {
+                    // 2. Check new format (modelChat, modelCode, etc) if no fetchedModel found
+                    if (!selectedModel && providerConfig[modeKey]) {
+                        selectedModel = providerConfig[modeKey];
+                        console.log(`[BotRuntime] Using ${modeKey}: ${selectedModel}`);
+                    }
+
+                    // 3. Fallback to modelChat if specific mode model not found
+                    if (!selectedModel && providerConfig.modelChat) {
+                        selectedModel = providerConfig.modelChat;
+                        console.log(`[BotRuntime] Fallback to modelChat: ${selectedModel}`);
+                    }
+
+                    // 4. For Azure, prefer azureDeployment over models object
+                    if (!selectedModel && genericProviderId === 'azure' && providerConfig.azureDeployment) {
                         selectedModel = providerConfig.azureDeployment;
+                        console.log(`[BotRuntime] Using azureDeployment: ${selectedModel}`);
+                    }
+
+                    // 5. Old format (models.chat, models.code, etc) - LOW priority
+                    if (!selectedModel && providerConfig.models && providerConfig.models[detectedMode]) {
+                        selectedModel = providerConfig.models[detectedMode];
+                        console.log(`[BotRuntime] Using models.${detectedMode}: ${selectedModel}`);
+                    }
+
+                    // 6. Final fallback
+                    if (!selectedModel) {
+                        selectedModel = AIService.getDefaultModel(genericProviderId);
+                        console.log(`[BotRuntime] Using default model: ${selectedModel}`);
                     }
 
                     console.log(`[BotRuntime] Public chat - Auto-selected model: ${selectedModel} for intent: ${detectedMode}`);
