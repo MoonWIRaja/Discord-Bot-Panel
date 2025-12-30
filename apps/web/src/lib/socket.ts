@@ -3,7 +3,7 @@ import { browser } from '$app/environment';
 
 const isLocal = browser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 const API_URL = browser
-    ? (import.meta.env.VITE_PUBLIC_API_URL || (isLocal ? 'http://localhost:4000' : window.location.origin))
+    ? (import.meta.env.PUBLIC_API_URL || (isLocal ? 'http://localhost:4000' : window.location.origin))
     : '';
 
 // Use globalThis to persist socket across module re-imports

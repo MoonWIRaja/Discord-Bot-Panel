@@ -1,6 +1,6 @@
 import { createAuthClient } from "better-auth/svelte";
 
-const apiUrl = import.meta.env.VITE_PUBLIC_API_URL || 'http://localhost:4000';
+const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:4000';
 
 export const authClient = createAuthClient({
     baseURL: apiUrl
