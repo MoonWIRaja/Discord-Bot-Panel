@@ -2685,6 +2685,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
             }
 
             const providerInfo = AIService.getProviders().find((p: { id: string }) => p.id === (selectedProvider.provider || selectedProvider.id));
+            const displayName = selectedProvider.label || providerInfo?.name || selectedProvider.id;
             const modeLabel = mode === 'chat' ? '💬 Chat (Auto)' : '🎨 Image Generation';
 
             // Build models list for image mode
@@ -2707,8 +2708,8 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                 .setColor(mode === 'chat' ? 0x10B981 : 0xF59E0B)
                 .setTitle(mode === 'chat' ? '💬 Public AI Chat' : '🎨 Public AI Image')
                 .setDescription(mode === 'chat'
-                    ? `This channel is now an **AI Chat Room**!\n\n**Provider:** ${providerInfo?.name || selectedProvider.id}\n**Mode:** Auto (detects intent)\n**Model:** Dynamic (auto-selected based on your message)\n\nJust type your message and AI will respond!`
-                    : `This channel is now an **AI Image Generator**!\n\n**Selected Provider:** ${providerInfo?.name || selectedProvider.id}\n**Selected Model:** ${defaultModel || 'auto'}\n\n${allImageModels.length > 0 ? `📋 **Available Image Models:**\n${modelsListText}` : '⚠️ No image models found!'}\n\nDescribe what you want to see and AI will create it!`)
+                    ? `This channel is now an **AI Chat Room**!\n\n**Provider:** ${displayName}\n**Mode:** Auto (detects intent)\n**Model:** Dynamic (auto-selected based on your message)\n\nJust type your message and AI will respond!`
+                    : `This channel is now an **AI Image Generator**!\n\n**Selected Provider:** ${displayName}\n**Selected Model:** ${defaultModel || 'auto'}\n\n${allImageModels.length > 0 ? `📋 **Available Image Models:**\n${modelsListText}` : '⚠️ No image models found!'}\n\nDescribe what you want to see and AI will create it!`)
                 .setFooter({ text: `Public AI Channel • ${mode === 'chat' ? '/aichat' : '/aiimage'}` })
                 .setTimestamp();
 
