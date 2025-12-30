@@ -38,6 +38,12 @@ export default defineConfig(({ mode }) => {
 			allowedHosts: allowedHosts
 		},
 		envDir: '../../',
+		define: {
+			// Expose PUBLIC_ environment variables to frontend at build time
+			// This makes them available as import.meta.env.PUBLIC_API_URL etc
+			'import.meta.env.PUBLIC_API_URL': JSON.stringify(env.PUBLIC_API_URL || 'http://localhost:4000'),
+			'import.meta.env.PUBLIC_WEB_URL': JSON.stringify(env.PUBLIC_WEB_URL || 'http://localhost:5173'),
+		},
 		build: {
 			rollupOptions: {
 				onwarn(warning, warn) {
