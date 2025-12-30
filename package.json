@@ -2,6 +2,9 @@
   "name": "discord-bot-panel",
   "version": "1.0.0",
   "private": true,
+  "bin": {
+    "dbp": "./bin/dbp.js"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"

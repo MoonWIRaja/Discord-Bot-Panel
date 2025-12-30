@@ -306,8 +306,8 @@
         
         try {
             flowName = flow.name || `Flow ${index + 1}`;
-            const flowNodes = JSON.parse(flow.nodes || '[]');
-            const flowEdges = JSON.parse(flow.edges || '[]');
+            const flowNodes = typeof flow.nodes === 'string' ? JSON.parse(flow.nodes) : (flow.nodes || []);
+            const flowEdges = typeof flow.edges === 'string' ? JSON.parse(flow.edges) : (flow.edges || []);
             
             if (Array.isArray(flowNodes)) {
                 nodes = flowNodes;

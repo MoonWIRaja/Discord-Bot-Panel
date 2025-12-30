@@ -5,14 +5,11 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// SQLite database file path (in root of monorepo, same as db/index.ts)
-const dbPath = path.resolve(__dirname, '../../data.db');
-
 export default defineConfig({
   schema: './src/db/schema.ts',
   out: './drizzle',
-  dialect: 'sqlite',
+  dialect: 'postgresql',
   dbCredentials: {
-    url: `file:${dbPath}`,
+    url: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/discord_bot_panel',
   },
 });

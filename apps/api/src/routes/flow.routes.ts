@@ -33,8 +33,17 @@ router.get('/:botId', async (req, res) => {
         return;
     }
 
+
     const botFlows = await db.select().from(flows).where(eq(flows.botId, botId));
-    res.json(botFlows);
+
+    // Convert jsonb (objects) to strings for frontend compatibility
+    const serializedFlows = botFlows.map(flow => ({
+      ...flow,
+      nodes: typeof flow.nodes === 'string' ? flow.nodes : JSON.stringify(flow.nodes),
+      edges: typeof flow.edges === 'string' ? flow.edges : JSON.stringify(flow.edges)
+    }));
+
+    res.json(serializedFlows);
   } catch (error) {
     console.error("Error fetching flows:", error);
     res.status(500).json({ error: 'Failed to fetch flows' });

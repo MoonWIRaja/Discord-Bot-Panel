@@ -12,8 +12,8 @@ const defaultTemplates: Array<{
     category: TemplateCategory;
     icon: string;
     color: string;
-    nodes: string;
-    edges: string;
+    nodes: any;
+    edges: any;
     isDefault: boolean;
     downloads: number;
 }> = [
@@ -27,7 +27,7 @@ const defaultTemplates: Array<{
         category: 'notification',
         icon: 'live_tv',
         color: '#ef4444',
-        nodes: JSON.stringify([
+        nodes: [
             {
                 id: 'trigger-setchannel',
                 type: 'trigger',
@@ -184,13 +184,13 @@ await client.saveConfig();
 await interaction.reply(\`🗑️ Removed profile: \${url}\`);`
                 }
             }
-        ]),
-        edges: JSON.stringify([
+        ],
+        edges: [
             { id: 'e1', source: 'trigger-setchannel', target: 'code-setchannel' },
             { id: 'e2', source: 'trigger-addlive', target: 'code-addlive' },
             { id: 'e3', source: 'trigger-listlive', target: 'code-listlive' },
             { id: 'e4', source: 'trigger-removelive', target: 'code-removelive' }
-        ]),
+        ],
         isDefault: true,
         downloads: 0
     },
@@ -205,7 +205,7 @@ await interaction.reply(\`🗑️ Removed profile: \${url}\`);`
         category: 'music',
         icon: 'music_note',
         color: '#22c55e',
-        nodes: JSON.stringify([
+        nodes: [
             {
                 id: 'trigger-play',
                 type: 'trigger',
@@ -415,15 +415,15 @@ VoiceService.resume(interaction.guild.id);
 await interaction.reply('▶️ Resumed playback!');`
                 }
             }
-        ]),
-        edges: JSON.stringify([
+        ],
+        edges: [
             { id: 'e1', source: 'trigger-play', target: 'code-play' },
             { id: 'e2', source: 'trigger-skip', target: 'code-skip' },
             { id: 'e3', source: 'trigger-stop', target: 'code-stop' },
             { id: 'e4', source: 'trigger-queue', target: 'code-queue' },
             { id: 'e5', source: 'trigger-pause', target: 'code-pause' },
             { id: 'e6', source: 'trigger-resume', target: 'code-resume' }
-        ]),
+        ],
         isDefault: true,
         downloads: 0
         },
@@ -433,11 +433,11 @@ await interaction.reply('▶️ Resumed playback!');`
     {
         id: randomUUID(),
         name: 'AI Assistant Bot',
-        description: 'Complete AI system with private rooms (/aichannel), public chat (/aichat), and image generation (/aiimage). Multi-provider support!',
+        description: 'Complete AI system with Gemini AI, private rooms (/aichannel), public chat (/aichat), and image generation (/aiimage)!',
         category: 'utility',
         icon: 'smart_toy',
         color: '#10b981',
-        nodes: JSON.stringify([
+        nodes: [
             // AI Provider 1 - Gemini
             {
                 id: 'ai-provider-gemini',
@@ -458,50 +458,6 @@ await interaction.reply('▶️ Resumed playback!');`
                         code: 'gemini-2.0-flash-exp',
                         image: 'imagen-3.0-generate-001',
                         vision: 'gemini-2.0-flash-exp'
-                    }
-                }
-            },
-            // AI Provider 2 - Groq
-            {
-                id: 'ai-provider-groq',
-                type: 'aiProvider',
-                position: { x: 400, y: 50 },
-                data: {
-                    label: 'Groq Provider',
-                    icon: 'smart_toy',
-                    color: '#22c55e',
-                    provider: 'groq',
-                    apiKey: '',
-                    modeChat: true,
-                    modeCode: true,
-                    modeVision: true,
-                    models: {
-                        chat: 'llama-3.3-70b-versatile',
-                        code: 'llama-3.3-70b-versatile',
-                        vision: 'llama-3.2-90b-vision-preview'
-                    }
-                }
-            },
-            // AI Provider 3 - OpenAI
-            {
-                id: 'ai-provider-openai',
-                type: 'aiProvider',
-                position: { x: 700, y: 50 },
-                data: {
-                    label: 'OpenAI Provider',
-                    icon: 'smart_toy',
-                    color: '#10b981',
-                    provider: 'openai',
-                    apiKey: '',
-                    modeChat: true,
-                    modeCode: true,
-                    modeImage: true,
-                    modeVision: true,
-                    models: {
-                        chat: 'gpt-4o',
-                        code: 'gpt-4o',
-                        image: 'dall-e-3',
-                        vision: 'gpt-4o'
                     }
                 }
             },
@@ -575,24 +531,32 @@ await interaction.reply('▶️ Resumed playback!');`
                     commandDescription: 'Invite user to private AI room'
                 }
             }
-        ]),
-            edges: JSON.stringify([]),
+        ],
+        edges: [],
             isDefault: true,
             downloads: 0
         }
     ];
 
 async function seedTemplates() {
-    console.log('[Seed] Seeding default templates...');
+    console.log('[Seed] Checking default templates...');
 
     try {
-        await db.delete(templates);
+        // Check existing templates
+        const existing = await db.select().from(templates);
+        console.log(`[Seed] Found ${existing.length} existing templates`);
 
+        // Only add templates that don't exist yet
         for (const template of defaultTemplates) {
-            await db.insert(templates).values(template);
-            console.log(`[Seed] Added template: ${template.name}`);
+            const exists = existing.find(t => t.name === template.name && t.isDefault);
+            if (!exists) {
+                await db.insert(templates).values(template);
+                console.log(`[Seed] ✅ Added default template: ${template.name}`);
+            } else {
+                console.log(`[Seed] ⏭️  Template already exists: ${template.name}`);
+            }
         }
-        console.log('[Seed] Templates seeded successfully!');
+        console.log('[Seed] Default templates ready!');
     } catch (error) {
         console.error('[Seed] Error seeding templates:', error);
     }

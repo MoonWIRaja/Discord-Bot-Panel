@@ -37,6 +37,24 @@ export default defineConfig(({ mode }) => {
 			port: port,
 			allowedHosts: allowedHosts
 		},
-		envDir: '../../'
+		envDir: '../../',
+		build: {
+			rollupOptions: {
+				onwarn(warning, warn) {
+					// IGNORE ALL warnings involving @xyflow/system or handleConnectionChange
+					// This library has known unused export issues in build
+					if (
+						(warning.message && warning.message.includes('@xyflow')) ||
+						(warning.id && warning.id.includes('@xyflow')) ||
+						(warning.message && warning.message.includes('handleConnectionChange'))
+					) {
+						return;
+					}
+
+					// Use default handler for everything else
+					warn(warning);
+				}
+			}
+		}
 	};
 });

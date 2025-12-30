@@ -10,7 +10,15 @@ const router = Router();
 router.get('/', async (req: Request, res: Response) => {
     try {
         const allTemplates = await db.select().from(templates);
-        res.json(allTemplates);
+
+        // Convert jsonb (objects) to strings for frontend compatibility
+        const serializedTemplates = allTemplates.map(template => ({
+            ...template,
+            nodes: typeof template.nodes === 'string' ? template.nodes : JSON.stringify(template.nodes),
+            edges: typeof template.edges === 'string' ? template.edges : JSON.stringify(template.edges)
+        }));
+
+        res.json(serializedTemplates);
     } catch (error: any) {
         console.error('[Templates] Error fetching templates:', error);
         res.status(500).json({ error: error.message });
@@ -25,7 +33,15 @@ router.get('/:id', async (req: Request, res: Response) => {
         if (!template) {
             return res.status(404).json({ error: 'Template not found' });
         }
-        res.json(template);
+
+        // Convert jsonb to string for frontend
+        const serializedTemplate = {
+            ...template,
+            nodes: typeof template.nodes === 'string' ? template.nodes : JSON.stringify(template.nodes),
+            edges: typeof template.edges === 'string' ? template.edges : JSON.stringify(template.edges)
+        };
+
+        res.json(serializedTemplate);
     } catch (error: any) {
         console.error('[Templates] Error fetching template:', error);
         res.status(500).json({ error: error.message });
