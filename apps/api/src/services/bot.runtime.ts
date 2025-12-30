@@ -3224,23 +3224,28 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                 }
 
                 if (!result.error && result.content) {
-                    // Record token usage
+                    // Record token usage - use selected provider after multi-provider selection
                     const tokensUsed = result.tokensUsed || null;
+                    const actualProviderId = selectedProviderConfig?.id || providerId;
+                    const actualProviderLabel = selectedProviderConfig?.label || providerConfig?.label || actualProviderId;
+                    const actualModel = selectedModel || model || 'unknown';
+                    const actualMode = detectedMode || mode || 'chat';
+
                     await TokenUsageService.recordUsage(
                         botId,
-                        providerId,
-                        providerConfig.label || providerId,
+                        actualProviderId,
+                        actualProviderLabel,
                         tokensUsed,
-                        mode,
-                        model,
+                        actualMode,
+                        actualModel,
                         message.author.id,
                         message.author.username
                     );
                     // Log token usage to Bot Logs
-                    this.addBotLog(botId, 'AI', `🪙 Token Usage: ${tokensUsed !== null ? tokensUsed.toLocaleString() + ' tokens' : 'N/A'} | Provider: ${providerId} | Model: ${model}`, {
+                    this.addBotLog(botId, 'AI', `🪙 Token Usage: ${tokensUsed !== null ? tokensUsed.toLocaleString() + ' tokens' : 'N/A'} | Provider: ${actualProviderLabel} | Model: ${actualModel}`, {
                         user: message.author.username,
                         channel: message.channel.id,
-                        details: { tokensUsed, provider: providerId, model, mode }
+                        details: { tokensUsed, provider: actualProviderId, model: actualModel, mode: actualMode }
                     });
 
                     // Save training example if training mode active
