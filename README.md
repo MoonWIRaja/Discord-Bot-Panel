@@ -2,6 +2,10 @@
 
 > 🤖 **Low-Code Discord Bot Builder** - Visual Logic Editor + AI-Powered Chatbot
 
+**Language / Bahasa:**
+- 🇬🇧 **English** (You are here)
+- 🇲🇾 [Bahasa Melayu](README.ms.md)
+
 ```
 ╔══════════════════════════════════════════════════════════════╗
 ║  ░▒▓ DISCORD BOT PANEL ▓▒░                                   ║
@@ -1096,4 +1100,4 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ---
 
-Made with 💜 by MoonWiRaja
+Made with 💜 by MoonWiRaja (KRACKED DEV)
