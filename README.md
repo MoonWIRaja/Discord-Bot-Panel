@@ -154,9 +154,42 @@ This section provides **step-by-step instructions** for complete beginners.
 2. Download for Windows
 3. Run installer → Use default settings
 4. ✅ Verify installation:
-   ```cmd
    git --version
    ```
+
+**1.4 Install FFmpeg (Required for Voice Features on Linux/macOS)**
+
+> **Note:** Windows users do not need to install FFmpeg manually; the application uses a bundled version.
+
+On **Linux** and **macOS**, you must install FFmpeg with `libopus` support for music playback features to work correctly.
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+**CentOS/RHEL:**
+```bash
+sudo yum install ffmpeg
+```
+
+**Arch Linux:**
+```bash
+sudo pacman -S ffmpeg
+```
+
+**macOS:**
+```bash
+brew install ffmpeg
+```
+
+✅ **Verify installation:**
+```bash
+ffmpeg -version
+# Check for opus codec support
+ffmpeg -codecs | grep opus
+```
 
 #### macOS
 

@@ -312,7 +312,7 @@ WantedBy=default.target
         }
     },
 
-    stop: () => {
+    stop: (skipExit = false) => {
         // Write state file immediately to prevent auto-restart logic
         try { fs.writeFileSync(stateFile, 'STOPPED'); } catch(e) {}
 
@@ -366,7 +366,15 @@ WantedBy=default.target
         killPort(5173);
 
         console.log('✅ Stopped successfully');
-        process.exit(0);
+        if (!skipExit) process.exit(0);
+    },
+
+    restart: async () => {
+        console.log('🔄 Restarting DBP...');
+        commands.stop(true);
+        console.log('⏳ Waiting for port release...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        commands.start();
     },
 
     status: () => {
@@ -448,6 +456,7 @@ Usage: dbp <command>
 Commands:
   start     Start production server in BACKGROUND
   stop      Stop the background server
+  restart   Restart the server (Stop then Start)
   restore   Auto-start if system was running previously
   setup-autostart  Configure auto-start for current OS (Win/Lin/Mac)
   status    Check if server is running
@@ -458,6 +467,7 @@ Commands:
 
 Examples:
   dbp start     # Start in background
+  dbp restart   # Restart server
   dbp stop      # Stop server
   dbp logs      # View logs
         `);
