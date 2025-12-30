@@ -309,23 +309,38 @@ export class VoiceService {
             // -reconnect 1: reconnect if connection drops
             // -reconnect_streamed 1: allow reconnecting streamed resources
             // -reconnect_delay_max 5: max delay
+            // Use -f ogg with libopus codec for proper Discord compatibility
             const ffmpegArgs = [
                 '-reconnect', '1',
                 '-reconnect_streamed', '1',
                 '-reconnect_delay_max', '5',
                 '-i', streamUrl,
-                '-ac', '2',      // 2 channels
-                '-ar', '48000',  // 48kHz
-                '-f', 'opus',    // Output format Opus (efficient for Discord)
-                '-v', '0',       // Quiet logs
-                '-'              // Output to stdout
+                '-ac', '2',           // 2 channels (stereo)
+                '-ar', '48000',       // 48kHz (required by Discord)
+                '-acodec', 'libopus', // Opus codec
+                '-f', 'ogg',          // Ogg container (OggOpus)
+                '-application', 'audio', // Opus application type
+                '-frame_duration', '20', // 20ms frames
+                '-vbr', 'on',         // Variable bitrate
+                '-b:a', '96k',        // 96kbps bitrate
+                '-loglevel', 'error', // Only show errors
+                '-'                   // Output to stdout
             ];
 
-            const ffmpegProcess = child_process.spawn(process.env.FFMPEG_PATH as string || 'ffmpeg', ffmpegArgs);
+            const ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
+            console.log(`[Voice] Using FFmpeg: ${ffmpegPath}`);
+
+            const ffmpegProcess = child_process.spawn(ffmpegPath, ffmpegArgs);
+
+            // Store reference to kill on skip/stop
+            serverQueue.currentFFmpeg = ffmpegProcess;
 
             // Handle FFmpeg errors
             ffmpegProcess.stderr.on('data', (data) => {
-                 // console.error(`[FFmpeg] ${data.toString()}`); // Uncomment for deep debug
+                const errorMsg = data.toString().trim();
+                if (errorMsg) {
+                    console.error(`[FFmpeg stderr] ${errorMsg}`);
+                }
             });
 
             ffmpegProcess.on('error', (err) => {
@@ -334,22 +349,18 @@ export class VoiceService {
                 if (client.logger) client.logger.log('error', `FFmpeg error: ${err.message}`);
             });
 
-            // 3. Create resource from FFmpeg stdout
-            // Since we force '-f opus', we use StreamType.Opus (or Ogg/WebMOpus depending on container)
-            // Raw opus stream usually needs StreamType.Arbitrary or Ogg
-            // Actually, '-f opus' produces Ogg encapsulated Opus usually in ffmpeg? 
-            // Actually '-f opus' might mean raw opus frames?
-            // Safer: '-f', 'ogg' -> StreamType.OggOpus
-            // Let's use '-f', 'opus' and StreamType.Arbitrary (let Discord probe) or just standard PCM?
-            // The most robust for discord.js 'createAudioResource' with streams is usually Ogg/Opus.
-            
-            // Let's change arg to '-f', 'opus' which is actually Ogg Opus in modern ffmpeg.
-            // But to be 100% safe, let's use:
-            const resource = createAudioResource(ffmpegProcess.stdout, {
-                inputType: StreamType.Arbitrary // Let discord.js demuxer handle the Ogg stream
+            ffmpegProcess.on('close', (code) => {
+                if (code !== 0 && code !== null) {
+                    console.error(`[Voice] FFmpeg exited with code ${code}`);
+                }
             });
 
-            console.log(`[Voice] Audio resource created (Manual FFmpeg)`);
+            // 3. Create resource from FFmpeg stdout using OggOpus format
+            const resource = createAudioResource(ffmpegProcess.stdout, {
+                inputType: StreamType.OggOpus // Use OggOpus for proper decoding
+            });
+
+            console.log(`[Voice] Audio resource created (OggOpus format)`);
 
             serverQueue.player.play(resource);
             serverQueue.playing = true;
