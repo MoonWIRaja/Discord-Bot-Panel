@@ -350,21 +350,49 @@ export class VoiceService {
                 if (client.logger) client.logger.log('error', `FFmpeg error: ${err.message}`);
             });
 
-            ffmpegProcess.on('close', (code) => {
+            ffmpegProcess.on('close', (code, signal) => {
+                console.log(`[Voice] FFmpeg process closed with code ${code}, signal ${signal}`);
                 if (code !== 0 && code !== null) {
-                    console.error(`[Voice] FFmpeg exited with code ${code}`);
+                    console.error(`[Voice] FFmpeg exited with error code ${code}`);
                 }
             });
+
+            // Check if stdout stream is available
+            if (!ffmpegProcess.stdout) {
+                throw new Error('FFmpeg stdout stream is null');
+            }
+
+            // Log first data from stdout to confirm stream is working
+            let dataReceived = false;
+            ffmpegProcess.stdout.once('data', (chunk) => {
+                dataReceived = true;
+                console.log(`[Voice] FFmpeg stream started, first chunk: ${chunk.length} bytes`);
+            });
+
+            // Set a timeout to check if data is received
+            setTimeout(() => {
+                if (!dataReceived) {
+                    console.warn('[Voice] No data received from FFmpeg after 2 seconds');
+                }
+            }, 2000);
 
             // 3. Create resource from FFmpeg stdout using OggOpus format
             const resource = createAudioResource(ffmpegProcess.stdout, {
                 inputType: StreamType.OggOpus // Use OggOpus for proper decoding
             });
 
-            console.log(`[Voice] Audio resource created (OggOpus format)`);
+            // Add error handler to resource
+            resource.playStream.on('error', (err) => {
+                console.error('[Voice] Resource playStream error:', err);
+            });
+
+            console.log(`[Voice] Audio resource created (OggOpus format). Starting playback...`);
 
             serverQueue.player.play(resource);
             serverQueue.playing = true;
+
+            // Log player state after play
+            console.log(`[Voice] Player state after play(): ${serverQueue.player.state.status}`);
             
             serverQueue.textChannel.send(`🎵 Now playing: **${song.title}** [${song.duration}]`).catch(() => {});
         } catch (error: any) {
