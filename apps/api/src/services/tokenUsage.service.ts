@@ -558,22 +558,28 @@ export class TokenUsageService {
                 return (tokens / 1_000_000) * pricePerMillion;
             };
 
-            return logs.map(log => ({
-                id: log.id,
-                providerId: log.providerId,
-                providerLabel: log.providerLabel,
-                userId: log.userId,
-                userName: log.userName,
-                tokensUsed: log.tokensUsed,
-                requestType: log.requestType,
-                model: log.model,
-                createdAt: log.createdAt || new Date(),
-                // For images, use stored costUsd; for chat, calculate from tokens
-                costUsd: log.requestType === 'image' 
-                    ? (log.costUsd || 0) 
-                    : calculateTokenCost(log.tokensUsed, log.providerId),
-                imageCount: log.imageCount || 0
-            }));
+            return logs.map(log => {
+                // Normalize providerId to provider type (e.g., "azure-abc123" -> "azure")
+                const providerType = log.providerId.split('-')[0] || log.providerId;
+                const providerDisplayName = providerType.charAt(0).toUpperCase() + providerType.slice(1);
+
+                return {
+                    id: log.id,
+                    providerId: providerType, // Use normalized type
+                    providerLabel: providerDisplayName, // Use capitalized type
+                    userId: log.userId,
+                    userName: log.userName,
+                    tokensUsed: log.tokensUsed,
+                    requestType: log.requestType,
+                    model: log.model,
+                    createdAt: log.createdAt || new Date(),
+                    // For images, use stored costUsd; for chat, calculate from tokens
+                    costUsd: log.requestType === 'image'
+                        ? (log.costUsd || 0) 
+                        : calculateTokenCost(log.tokensUsed, providerType),
+                    imageCount: log.imageCount || 0
+                };
+            });
         } catch (error) {
             console.error('[TokenUsageService] Error getting usage logs:', error);
             return [];
