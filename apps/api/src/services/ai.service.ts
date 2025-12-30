@@ -939,19 +939,40 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
             // Serverless endpoints use OpenAI-compatible format
             const apiUrl = endpoint.includes('/v1/') ? endpoint : `${endpoint}/v1/chat/completions`;
             
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${config.apiKey}`,
-                    'api-key': config.apiKey
-                },
-                body: JSON.stringify({
+            const makeRequest = async (useMaxCompletionTokens = false) => {
+                const body: any = {
                     model: model,
-                    messages: messages.map(m => ({ role: m.role, content: m.content })),
-                    max_tokens: 4096
-                })
-            });
+                    messages: messages.map(m => ({ role: m.role, content: m.content }))
+                };
+
+                if (useMaxCompletionTokens) {
+                    body.max_completion_tokens = 4096;
+                } else {
+                    body.max_tokens = 4096;
+                }
+
+                return await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${config.apiKey}`,
+                        'api-key': config.apiKey
+                    },
+                    body: JSON.stringify(body)
+                });
+            };
+
+            let response = await makeRequest(false);
+
+            // Retry architecture
+            if (response.status === 400) {
+                const clone = response.clone();
+                const text = await clone.text();
+                if (text.includes("max_tokens' is not supported")) {
+                    console.log('[AIService] Azure Serverless - Retrying with max_completion_tokens');
+                    response = await makeRequest(true);
+                }
+            }
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -981,19 +1002,39 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
         try {
             const apiUrl = endpoint.includes('/chat/completions') ? endpoint : `${endpoint}/models/chat/completions`;
             
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'api-key': config.apiKey,
-                    'Authorization': `Bearer ${config.apiKey}`
-                },
-                body: JSON.stringify({
+            const makeRequest = async (useMaxCompletionTokens = false) => {
+                const body: any = {
                     model: model,
-                    messages: messages.map(m => ({ role: m.role, content: m.content })),
-                    max_tokens: 4096
-                })
-            });
+                    messages: messages.map(m => ({ role: m.role, content: m.content }))
+                };
+
+                if (useMaxCompletionTokens) {
+                    body.max_completion_tokens = 4096;
+                } else {
+                    body.max_tokens = 4096;
+                }
+
+                return await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'api-key': config.apiKey,
+                        'Authorization': `Bearer ${config.apiKey}`
+                    },
+                    body: JSON.stringify(body)
+                });
+            };
+
+            let response = await makeRequest(false);
+
+            if (response.status === 400) {
+                const clone = response.clone();
+                const text = await clone.text();
+                if (text.includes("max_tokens' is not supported")) {
+                    console.log('[AIService] Azure AI Inference - Retrying with max_completion_tokens');
+                    response = await makeRequest(true);
+                }
+            }
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -1018,20 +1059,40 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
     }
 
     try {
-        const response = await fetch(
-            `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=2024-02-01`,
-            {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'api-key': config.apiKey
-                },
-                body: JSON.stringify({
-                    messages: messages.map(m => ({ role: m.role, content: m.content })),
-                    max_tokens: 4096
-                })
+        const makeRequest = async (useMaxCompletionTokens = false) => {
+            const body: any = {
+                messages: messages.map(m => ({ role: m.role, content: m.content }))
+            };
+
+            if (useMaxCompletionTokens) {
+                body.max_completion_tokens = 4096;
+            } else {
+                body.max_tokens = 4096;
             }
-        );
+
+            return await fetch(
+                `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=2024-02-01`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'api-key': config.apiKey
+                    },
+                    body: JSON.stringify(body)
+                }
+            );
+        };
+
+        let response = await makeRequest(false);
+
+        if (response.status === 400) {
+            const clone = response.clone();
+            const text = await clone.text();
+            if (text.includes("max_tokens' is not supported")) {
+                console.log('[AIService] Azure OpenAI - Retrying with max_completion_tokens');
+                response = await makeRequest(true);
+            }
+        }
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));

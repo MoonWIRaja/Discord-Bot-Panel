@@ -403,12 +403,28 @@ router.post('/ai/fetch-models', async (req, res) => {
 
           if (!testUrl) return { model, valid: true };
 
-          const response = await fetch(testUrl, {
+          let response = await fetch(testUrl, {
             method: 'POST',
             headers,
             body: JSON.stringify(testBody),
             signal: AbortSignal.timeout(5000) // 5 second timeout
           });
+
+          // Retry with max_completion_tokens if max_tokens is unsupported
+          if (response.status === 400 && (await response.clone().text()).includes("max_tokens' is not supported")) {
+            const newBody = { ...testBody };
+            if (newBody.max_tokens) {
+              newBody.max_completion_tokens = newBody.max_tokens;
+              delete newBody.max_tokens;
+            }
+
+            response = await fetch(testUrl, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(newBody),
+              signal: AbortSignal.timeout(5000)
+            });
+          }
 
           const valid = response.ok || response.status === 200;
           console.log(`[FetchModels] Model ${model.id}: ${valid ? '✓' : '✗'} (${response.status})`);
@@ -529,15 +545,36 @@ router.post('/ai/deploy-model', async (req, res) => {
     if (testUrl) {
       try {
         console.log(`[DeployModel] Testing at: ${testUrl}`);
-        const response = await fetch(testUrl, {
+
+        let response = await fetch(testUrl, {
           method: 'POST',
           headers,
           body: JSON.stringify(testBody),
           signal: AbortSignal.timeout(10000) // 10 second timeout
         });
 
-        const responseText = await response.text();
+        let responseText = await response.text();
         console.log(`[DeployModel] Test response status: ${response.status}`);
+
+        // Retry with max_completion_tokens if max_tokens is unsupported (for new O1/O3 models)
+        if (response.status === 400 && responseText.includes("max_tokens' is not supported")) {
+          console.log('[DeployModel] Retrying with max_completion_tokens...');
+          const newBody = { ...testBody };
+          if (newBody.max_tokens) {
+            newBody.max_completion_tokens = newBody.max_tokens;
+            delete newBody.max_tokens;
+          }
+
+          response = await fetch(testUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(newBody),
+            signal: AbortSignal.timeout(10000)
+          });
+          responseText = await response.text();
+          console.log(`[DeployModel] Retry response status: ${response.status}`);
+        }
+
         console.log(`[DeployModel] Test response: ${responseText.substring(0, 300)}`);
 
         if (response.ok || response.status === 200) {
