@@ -503,12 +503,17 @@ export class TokenUsageService {
                 isEnabled: limit.isEnabled || false
             }));
 
-            // Group by providerLabel and aggregate usage data
+            // Group by provider TYPE (e.g., azure, gemini, groq) not by label
+            // Extract type from providerId like "azure-node1" -> "azure"
             const groupedMap = new Map<string, UsageSummary>();
             for (const summary of rawSummaries) {
-                const existing = groupedMap.get(summary.providerLabel);
+                // Extract provider type from providerId (e.g., "azure-abc123" -> "azure")
+                const providerType = summary.providerId.split('-')[0] || summary.providerId;
+                const providerDisplayName = providerType.charAt(0).toUpperCase() + providerType.slice(1); // Capitalize
+
+                const existing = groupedMap.get(providerType);
                 if (existing) {
-                    // Aggregate usage from multiple providers with same label
+                    // Aggregate usage from multiple providers with same type
                     existing.dailyUsed += summary.dailyUsed;
                     existing.weeklyUsed += summary.weeklyUsed;
                     existing.monthlyUsed += summary.monthlyUsed;
@@ -521,7 +526,11 @@ export class TokenUsageService {
                     existing.totalRequests += summary.totalRequests;
                     existing.isEnabled = existing.isEnabled || summary.isEnabled;
                 } else {
-                    groupedMap.set(summary.providerLabel, { ...summary });
+                    groupedMap.set(providerType, {
+                        ...summary,
+                        providerId: providerType,
+                        providerLabel: providerDisplayName
+                    });
                 }
             }
 
