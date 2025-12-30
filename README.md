@@ -639,6 +639,8 @@ npm run db:studio -w apps/api    # Visual database viewer
 npm run seed -w apps/api         # Add default templates
 ```
 
+> **💡 Note:** Database commands automatically load credentials from your `.env` file. Make sure `DATABASE_URL` is properly configured before running these commands.
+
 ---
 
 ## ⚙️ Environment Setup

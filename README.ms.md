@@ -360,6 +360,8 @@ Output yang dijangka:
 [Seed] ✅ Added default template: AI Assistant Bot
 ```
 
+> **💡 Nota:** Arahan database secara automatik load credentials dari fail `.env` anda. Pastikan `DATABASE_URL` dikonfigurasi dengan betul sebelum jalankan arahan ini.
+
 ---
 
 ### Bahagian 4: Konfigurasi Environment
