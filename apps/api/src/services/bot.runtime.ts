@@ -1949,8 +1949,6 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                         .map((m: any) => m.id || m.name);
                     console.log(`[BotRuntime] Using ${availableModels.length} fetchedModels for mode ${currentMode}`);
                 } else {
-                    console.log(`[BotRuntime] Using ${availableModels.length} fetchedModels for mode ${currentMode}`);
-                } else {
                     // No fetchedModels - user must Fetch Models in Studio first
                     console.log(`[BotRuntime] No fetchedModels for ${currentProviderId} mode ${currentMode} - use Fetch Models in Studio`);
                 }
