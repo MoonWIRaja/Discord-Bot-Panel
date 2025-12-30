@@ -99,19 +99,30 @@ export const IMAGE_PRICING: Record<string, Record<string, number>> = {
 };
 
 // Calculate cost for a given provider/model/operation
+// Calculate cost for a given provider/model/operation
 export function calculateCost(
     provider: string, 
     model: string, 
     operationType: 'chat' | 'image' | 'audio', 
     tokensOrCount: number
 ): number {
+    const getProviderPricing = (p: string, map: Record<string, any>) => {
+        const lower = p.toLowerCase();
+        // Try exact match
+        if (map[lower]) return map[lower];
+        // Try splitting by hyphen (e.g. azure-123 -> azure)
+        const base = lower.split('-')[0];
+        if (map[base]) return map[base];
+        return map['default'];
+    };
+
     if (operationType === 'image') {
-        const providerPricing = IMAGE_PRICING[provider] || IMAGE_PRICING['default'];
+        const providerPricing = getProviderPricing(provider, IMAGE_PRICING);
         const modelPrice = providerPricing[model] || providerPricing['default'] || 0.020;
         return modelPrice * tokensOrCount; // tokensOrCount = number of images
     } else {
         // Chat - tokens
-        const pricePerMillion = PROVIDER_PRICING[provider] || PROVIDER_PRICING['default'];
+        const pricePerMillion = getProviderPricing(provider, PROVIDER_PRICING);
         return (tokensOrCount / 1_000_000) * pricePerMillion;
     }
 }

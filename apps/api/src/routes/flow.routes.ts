@@ -99,8 +99,11 @@ router.post('/', async (req, res) => {
 
             // Extract provider even if apiKey is empty (user can fill later)
             if (data.provider && data.isEnabled !== false) {
+              const uniqueId = `${data.provider}-${node.id}`;
               providers.push({
-                id: data.provider,
+                id: uniqueId,
+                provider: data.provider, // Store original type for API calls
+                label: data.label || data.name || data.provider, // Store label for UI
                 apiKey: data.apiKey || '', // Allow empty apiKey
                 // New format: modeX booleans from Studio toggles
                 modeChat: data.modeChat,
@@ -140,7 +143,7 @@ router.post('/', async (req, res) => {
 
               // First enabled provider is default
               if (!defaultProvider) {
-                defaultProvider = data.provider;
+                defaultProvider = uniqueId;
               }
             }
           }

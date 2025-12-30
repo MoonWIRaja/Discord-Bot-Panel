@@ -1474,6 +1474,7 @@ export class BotRuntime {
             // ====== TOKEN LIMIT CHECK ======
             const providerLabel = providerConfig.label || providerConfig.name || sessionProviderId;
             const isUserAdmin = message.member?.permissions?.has('Administrator') || false;
+            // Use unique sessionProviderId for tracking, but label for display
             const limitCheck = await TokenUsageService.checkLimit(
                 botId,
                 sessionProviderId,
@@ -1513,23 +1514,24 @@ export class BotRuntime {
 
             // Check if sessionModel is valid for this provider
             let validModel = sessionModel;
+            const genericProviderId = (providerConfig.provider || sessionProviderId) as string;
 
             // Azure uses deployment names, NOT model names - always ignore sessionModel for Azure
-            if (sessionProviderId === 'azure') {
+            if (genericProviderId === 'azure') {
                 validModel = ''; // Azure will use azureDeployment in chatAzure function
                 console.log(`[BotRuntime] Azure provider - ignoring sessionModel, will use azureDeployment`);
             } else if (sessionModel) {
-                const validPrefixes = providerModelPrefixes[sessionProviderId] || [];
+                const validPrefixes = providerModelPrefixes[genericProviderId] || [];
                 const isValidForProvider = validPrefixes.length === 0 || validPrefixes.some(prefix => sessionModel.toLowerCase().includes(prefix.toLowerCase()));
                 if (!isValidForProvider) {
-                    console.log(`[BotRuntime] Model "${sessionModel}" doesn't match provider "${sessionProviderId}", using default`);
+                    console.log(`[BotRuntime] Model "${sessionModel}" doesn't match provider "${genericProviderId}", using default`);
                     validModel = '';
                 }
             }
 
             const selectedModel = validModel || providerConfig.models?.[currentMode] || providerConfig.models?.chat || '';
 
-            console.log(`[BotRuntime] AI - Provider: ${sessionProviderId}, Mode: ${currentMode}, Model: ${selectedModel || 'auto'}`);
+            console.log(`[BotRuntime] AI - Provider: ${sessionProviderId} (${genericProviderId}), Mode: ${currentMode}, Model: ${selectedModel || 'auto'}`);
             console.log(`[BotRuntime] API Key exists: ${!!apiKey}, Length: ${apiKey?.length || 0}`);
 
             // ==================== IMAGE GENERATION ====================
@@ -1545,7 +1547,7 @@ export class BotRuntime {
 
                 const imageModel = providerConfig.models?.image || selectedModel;
                 const response = await AIService.generateImage({
-                    provider: sessionProviderId as any,
+                    provider: genericProviderId as any,
                     apiKey: apiKey,
                     prompt: message.content,
                     model: imageModel,
@@ -1595,7 +1597,7 @@ export class BotRuntime {
                 /\b(read|speak|say|voice|audio|tts)\b.*\b(this|aloud|out|text|loud)\b/i.test(message.content) ||
                 /\b(convert|generate)\b.*\b(speech|audio|voice)\b/i.test(message.content);
 
-            if (wantsTTS && (sessionProviderId === 'openai' || sessionProviderId === 'groq')) {
+            if (wantsTTS && (genericProviderId === 'openai' || genericProviderId === 'groq')) {
                 console.log(`[BotRuntime] Generating TTS...`);
                 await message.reply('🎤 Converting text to speech... Please wait.');
 
@@ -1605,10 +1607,10 @@ export class BotRuntime {
                     .trim() || message.content;
 
                 const ttsResponse = await AIService.generateSpeech({
-                    provider: sessionProviderId,
+                    provider: genericProviderId,
                     apiKey: apiKey,
                     text: textToSpeak,
-                    model: sessionProviderId === 'openai' ? 'tts-1-hd' : 'playai-tts',
+                    model: genericProviderId === 'openai' ? 'tts-1-hd' : 'playai-tts',
                     voice: 'alloy' // Default voice
                 });
 
@@ -1722,7 +1724,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
             ];
 
             const response = await AIService.chat({
-                provider: sessionProviderId as any,
+                provider: genericProviderId as any,
                 apiKey: apiKey,
                 model: selectedModel,
                 mode: currentMode as any,
@@ -1895,13 +1897,17 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
 
             // Get provider config
             const providerConfig = configuredProviders.find((p: any) => p.id === currentProviderId);
+            const genericProviderId = (providerConfig?.provider || currentProviderId) as string;
             const allProvidersMeta = AIService.getProviders();
             const allModes = AIService.getModes();
 
             // Build available providers list
             const availableProviders = configuredProviders.map((cp: any) => {
-                const meta = allProvidersMeta.find((p: { id: string }) => p.id === cp.id);
-                return { id: cp.id, name: meta?.name || cp.id };
+                // Use generic provider type to find name
+                const meta = allProvidersMeta.find((p: { id: string }) => p.id === (cp.provider || cp.id));
+                // Use label from config if available (user defined), else provider name, else ID
+                const name = cp.label || meta?.name || cp.id;
+                return { id: cp.id, name };
             });
 
             // Get configured modes (auto + modes that have models available)
@@ -1961,7 +1967,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
             } catch { }
 
             // Create settings embed (identical to welcome embed)
-            const providerInfo = allProvidersMeta.find((p: { id: string }) => p.id === currentProviderId);
+            const providerInfo = allProvidersMeta.find((p: { id: string }) => p.id === genericProviderId);
             const modeInfo = allModes.find((m: { id: string }) => m.id === currentMode);
             const userId = interaction.user.id;
 
@@ -1969,8 +1975,8 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                 .setColor(0x10B981)
                 .setTitle('🤖 AI Chat Room')
                 .setDescription(currentMode === 'auto'
-                    ? `Welcome <@${userId}>! Start chatting - AI will detect your intent.\n\n**Provider:** ${providerInfo?.name || currentProviderId}\n**Mode:** Auto (detects intent)`
-                    : `Welcome <@${userId}>! Start chatting.\n\n**Provider:** ${providerInfo?.name || currentProviderId}\n**Mode:** ${modeInfo?.name || currentMode}${currentModel ? `\n**Model:** ${currentModel}` : ''}`)
+                    ? `Welcome <@${userId}>! Start chatting - AI will detect your intent.\n\n**Provider:** ${providerConfig?.label || providerInfo?.name || currentProviderId}\n**Mode:** Auto (detects intent)`
+                    : `Welcome <@${userId}>! Start chatting.\n\n**Provider:** ${providerConfig?.label || providerInfo?.name || currentProviderId}\n**Mode:** ${modeInfo?.name || currentMode}${currentModel ? `\n**Model:** ${currentModel}` : ''}`)
                 .setFooter({ text: `Session ID: ${session[0].id.slice(0, 8)} • Use dropdowns below to change settings` })
                 .setTimestamp();
 
@@ -2113,6 +2119,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                 // Get the provider config for fetchedModels
                 const currentProviderId = (session[0] as any).aiProvider || configuredProviders[0]?.id;
                 const providerConfig = configuredProviders.find((p: any) => p.id === currentProviderId);
+                const genericProviderId = (providerConfig?.provider || currentProviderId) as string;
                 const fetchedModels = providerConfig?.fetchedModels || [];
 
                 // Get models from fetchedModels if available, otherwise static list
@@ -2124,8 +2131,8 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                             .map((m: any) => m.id || m.name);
                         console.log(`[BotRuntime] Mode change - using ${modeModels.length} fetchedModels for ${selectedValue}`);
                     } else {
-                        modeModels = AIService.getModels(currentProviderId, selectedValue);
-                        console.log(`[BotRuntime] Mode change - getModels(${currentProviderId}, ${selectedValue}):`, modeModels);
+                        modeModels = AIService.getModels(genericProviderId, selectedValue);
+                        console.log(`[BotRuntime] Mode change - getModels(${genericProviderId}, ${selectedValue}):`, modeModels);
                     }
                 }
                 const firstModel = modeModels.length > 0 ? modeModels[0] : '';
@@ -2154,6 +2161,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
             const allProvidersMeta = AIService.getProviders();
             const allModes = AIService.getModes();
             const providerConfig = configuredProviders.find((p: any) => p.id === currentProviderId);
+            const genericProviderId = (providerConfig?.provider || currentProviderId) as string;
 
             // Get configured modes for this provider (support both new modeX and old models format)
             const configuredModes: any[] = [];
@@ -2184,22 +2192,23 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
 
             // Get available models for current mode
             const availableModels = currentMode !== 'auto' ?
-                AIService.getModels(currentProviderId, currentMode) : [];
+                AIService.getModels(genericProviderId, currentMode) : [];
 
             // Build available providers list
             const availableProviders = configuredProviders.map((cp: any) => {
-                const meta = allProvidersMeta.find((p: { id: string }) => p.id === cp.id);
-                return { id: cp.id, name: meta?.name || cp.id };
+                const meta = allProvidersMeta.find((p: { id: string }) => p.id === (cp.provider || cp.id));
+                const name = cp.label || meta?.name || cp.id;
+                return { id: cp.id, name };
             });
 
             // Create updated embed - keep AI Chat Room style (green)
-            const providerInfo = allProvidersMeta.find((p: { id: string }) => p.id === currentProviderId);
+            const providerInfo = allProvidersMeta.find((p: { id: string }) => p.id === genericProviderId);
             const modeInfo = allModes.find((m: { id: string }) => m.id === currentMode);
 
             const embed = new EmbedBuilder()
                 .setColor(0x10B981) // Green - AI Chat Room style
                 .setTitle('🤖 AI Chat Room')
-                .setDescription(`Welcome <@${interaction.user.id}>! Start chatting - AI will detect your intent.\n\n**Provider:** ${providerInfo?.name || currentProviderId}\n**Mode:** ${modeInfo?.name || currentMode}${currentModel ? ` (${currentModel})` : ''}\n\nSession ID: ${sessionId.slice(0, 8)} • Use dropdowns below to change settings`)
+                .setDescription(`Welcome <@${interaction.user.id}>! Start chatting - AI will detect your intent.\n\n**Provider:** ${providerConfig?.label || providerInfo?.name || currentProviderId}\n**Mode:** ${modeInfo?.name || currentMode}${currentModel ? ` (${currentModel})` : ''}\n\nSession ID: ${sessionId.slice(0, 8)} • Use dropdowns below to change settings`)
                 .setTimestamp();
 
             // Provider dropdown
@@ -2423,8 +2432,9 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
 
             // Build available providers list with names
             const availableProviders = configuredProviders.map((cp: any) => {
-                const meta = allProvidersMeta.find((p: { id: string }) => p.id === cp.id);
-                return { id: cp.id, name: meta?.name || cp.id };
+                const meta = allProvidersMeta.find((p: { id: string }) => p.id === (cp.provider || cp.id));
+                const name = cp.label || meta?.name || cp.id;
+                return { id: cp.id, name };
             });
 
             // If no providers configured, show error
@@ -2444,14 +2454,18 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
             // Check first provider for available modes
             // Support both old format (models.X) and new format (modeX boolean)
             const firstProvider = configuredProviders[0];
+            const genericFirstProviderId = (firstProvider?.provider || firstProvider?.id) as string;
             console.log('[BotRuntime] /aichannel firstProvider:', JSON.stringify(firstProvider, null, 2));
             if (firstProvider) {
+                // Get modes based on generic provider type to know if models exist in static list
+                const staticModels = AIService.getModels(genericFirstProviderId);
+
                 for (const mode of allModes.filter((m: { id: string }) => m.id !== 'auto')) {
                     // New format: modeChat: "true", modeCode: "true", etc.
                     const modeKey = `mode${mode.id.charAt(0).toUpperCase() + mode.id.slice(1)}`;
                     const isModeEnabled = firstProvider[modeKey] === true || firstProvider[modeKey] === 'true';
-                    // Old format: models.chat, models.code, etc.
-                    const hasModel = firstProvider.models?.[mode.id];
+                    // Check static models or old format
+                    const hasModel = firstProvider.models?.[mode.id] || staticModels.some(m => AIService.getModels(genericFirstProviderId, mode.id).includes(m));
 
                     console.log(`[BotRuntime] Mode ${mode.id}: key=${modeKey}, value=${firstProvider[modeKey]}, isModeEnabled=${isModeEnabled}, hasModel=${hasModel}`);
 
@@ -2595,8 +2609,8 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
 
             for (const p of providers) {
                 const fetchedModels = p.fetchedModels || [];
-                const providerInfo = AIService.getProviders().find((pr: { id: string }) => pr.id === p.id);
-                const providerName = providerInfo?.name || p.id;
+                const providerInfo = AIService.getProviders().find((pr: { id: string }) => pr.id === (p.provider || p.id));
+                const providerName = p.label || providerInfo?.name || p.id;
 
                 if (Array.isArray(fetchedModels) && fetchedModels.length > 0) {
                     // Use fetched models
@@ -2611,7 +2625,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                     allImageModels.push(...imageModels);
                 } else {
                     // Use static models
-                    const staticModels = AIService.getModels(p.id, targetMode);
+                    const staticModels = AIService.getModels(p.provider || p.id, targetMode);
                     for (const modelName of staticModels) {
                         allImageModels.push({
                             providerId: p.id,
@@ -2670,7 +2684,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                 return;
             }
 
-            const providerInfo = AIService.getProviders().find((p: { id: string }) => p.id === selectedProvider.id);
+            const providerInfo = AIService.getProviders().find((p: { id: string }) => p.id === (selectedProvider.provider || selectedProvider.id));
             const modeLabel = mode === 'chat' ? '💬 Chat (Auto)' : '🎨 Image Generation';
 
             // Build models list for image mode
@@ -2748,7 +2762,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                 );
             }
             if (!providerConfig) {
-                providerConfig = providers.find((p: any) => p.id === providerId);
+                providerConfig = providers.find((p: any) => p.id === providerId || (p.provider || p.id) === providerId);
             }
 
             if (!providerConfig) {
@@ -2770,181 +2784,44 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
             });
 
             // Get provider info for display name
-            const providerInfo = AIService.getProviders().find((p: { id: string }) => p.id === providerId);
+            const providerInfo = AIService.getProviders().find((p: { id: string }) => p.id === (providerConfig.provider || providerId));
 
             if (mode === 'image') {
-                // 3-Step Image Generation: Vision → Rewrite → Generate
-                await message.react('🎨');
-
-                let finalPrompt = message.content;
-                let imageDescription = '';
-
-                // Step 1: Check for image attachments and analyze with vision
-                const imageAttachments = message.attachments.filter(att =>
-                    att.contentType?.startsWith('image/') ||
-                    att.url?.match(/\.(jpg|jpeg|png|gif|webp)$/i)
+                await this.processPublicImageGeneration(
+                    botId, message, providerConfig, providers, model, savedEndpoint, providerInfo
                 );
-
-                if (imageAttachments.size > 0) {
-                    const attachment = imageAttachments.first();
-                    if (attachment) {
-                        // Find a vision-capable provider - prefer non-Azure first, then Azure with vision models
-                        const visionProvider = providers.find((p: any) =>
-                            (p.modeVision === true || p.modeVision === 'true') &&
-                            ['gemini', 'openai', 'claude'].includes(p.id)
-                        ) || providers.find((p: any) =>
-                            p.modeVision === true || p.modeVision === 'true'
-                        ) || providers.find((p: any) =>
-                            ['gemini', 'openai', 'claude'].includes(p.id) && p.apiKey
-                        );
-
-                        if (visionProvider) {
-                            try {
-                                await message.react('🔍');
-                                console.log(`[BotRuntime] Analyzing reference image with ${visionProvider.id}...`);
-
-                                // Get the vision model from provider config, or use default
-                                const visionModel = visionProvider.models?.vision ||
-                                    (visionProvider.id === 'gemini' ? 'gemini-2.0-flash' :
-                                        visionProvider.id === 'openai' ? 'gpt-4o' :
-                                            visionProvider.id === 'claude' ? 'claude-3-5-sonnet-20241022' : 'auto');
-
-                                imageDescription = await AIService.analyzeImage({
-                                    provider: visionProvider.id,
-                                    apiKey: visionProvider.apiKey,
-                                    imageUrl: attachment.url,
-                                    prompt: "Describe this image for recreating it. Focus on: colors, shapes, text/letters, style, and composition. Be specific and detailed.",
-                                    azureEndpoint: visionProvider.endpoint || visionProvider.azureEndpoint
-                                });
-
-                                console.log(`[BotRuntime] Image description: ${imageDescription.substring(0, 100)}...`);
-
-                                // Track vision usage
-                                const estimatedVisionTokens = 1000 + Math.ceil(imageDescription.length / 4);
-                                await TokenUsageService.recordUsage(
-                                    botId,
-                                    visionProvider.id,
-                                    visionProvider.name || visionProvider.id,
-                                    estimatedVisionTokens,
-                                    'vision',
-                                    visionModel,
-                                    message.author.id,
-                                    message.author.displayName || message.author.username
-                                );
-                            } catch (err) {
-                                console.error('[BotRuntime] Vision analysis failed:', err);
-                            }
-                        } else {
-                            console.log('[BotRuntime] No vision provider found, proceeding without image analysis');
-                        }
-                    }
-                }
-
-                // Step 2: Rewrite prompt to be safe (remove copyrighted content)
-                // Prefer non-Azure providers first, then Azure with chat models
-                const rewriteProvider = providers.find((p: any) =>
-                    (p.modeChat === true || p.modeChat === 'true') &&
-                    ['gemini', 'openai', 'claude', 'groq'].includes(p.id)
-                ) || providers.find((p: any) =>
-                    p.modeChat === true || p.modeChat === 'true'
-                ) || providers.find((p: any) =>
-                    ['gemini', 'openai', 'claude', 'groq'].includes(p.id) && p.apiKey
-                );
-
-                if (rewriteProvider) {
-                    try {
-                        await message.react('✨');
-                        console.log(`[BotRuntime] Rewriting prompt with ${rewriteProvider.id}...`);
-
-                        // Get the chat model from provider config, or use default
-                        const chatModel = rewriteProvider.models?.chat ||
-                            (rewriteProvider.id === 'gemini' ? 'gemini-2.5-flash' :
-                                rewriteProvider.id === 'openai' ? 'gpt-4o' :
-                                    rewriteProvider.id === 'claude' ? 'claude-3-5-sonnet-20241022' :
-                                        rewriteProvider.id === 'groq' ? 'llama-3.3-70b-versatile' : 'auto');
-
-                        finalPrompt = await AIService.rewritePromptForImage({
-                            provider: rewriteProvider.id,
-                            apiKey: rewriteProvider.apiKey,
-                            prompt: message.content,
-                            imageDescription: imageDescription || undefined,
-                            azureEndpoint: rewriteProvider.endpoint || rewriteProvider.azureEndpoint,
-                            model: chatModel
-                        });
-
-                        console.log(`[BotRuntime] Final prompt: ${finalPrompt.substring(0, 100)}...`);
-
-                        // Track rewrite usage
-                        const estimatedRewriteTokens = 200 + Math.ceil(((imageDescription?.length || 0) + message.content.length + finalPrompt.length) / 4);
-                        await TokenUsageService.recordUsage(
-                            botId,
-                            rewriteProvider.id,
-                            rewriteProvider.name || rewriteProvider.id,
-                            estimatedRewriteTokens,
-                            'rewrite',
-                            chatModel,
-                            message.author.id,
-                            message.author.displayName || message.author.username
-                        );
-                    } catch (err) {
-                        console.error('[BotRuntime] Prompt rewrite failed, using original:', err);
-                        finalPrompt = imageDescription ? `${imageDescription}. ${message.content}` : message.content;
-                    }
-                }
-
-                // Step 3: Generate image with safe prompt
-                const result = await AIService.generateImage({
-                    provider: providerId,
-                    apiKey: apiKey,
-                    prompt: finalPrompt,
-                    model: model,
-                    azureEndpoint: channelConfig.providerEndpoint || providerConfig.azureEndpoint || providerConfig.endpoint || ''
-                });
-
-                if (!result.error && result.imageUrl) {
-                    const embed = new EmbedBuilder()
-                        .setColor(0xF59E0B)
-                        .setTitle('🎨 AI Generated Image')
-                        .setImage(result.imageUrl)
-                        .setFooter({ text: `Requested by ${message.author.displayName}` })
-                        .setTimestamp();
-                    await message.reply({ embeds: [embed] });
-
-                    // Log successful image generation
-                    this.addBotLog(botId, 'AI', `🎨 Image generated for ${message.author.displayName || message.author.username}`, {
-                        user: message.author.displayName || message.author.username,
-                        channel: (message.channel as TextChannel).name
-                    });
-
-                    // Track image usage with cost
-                    await TokenUsageService.recordImageUsage(
-                        botId,
-                        providerId,
-                        providerInfo?.name || providerId,
-                        model || 'unknown',
-                        1, // 1 image generated
-                        message.author.id,
-                        message.author.displayName || message.author.username
-                    );
-                } else {
-                    // Check if it's a content policy error and provide better message
-                    const errorMsg = result.error || result.content || 'Failed to generate image';
-                    let userMessage = `❌ ${errorMsg}`;
-
-                    if (errorMsg.includes('safety system') || errorMsg.includes('content_policy')) {
-                        userMessage = `⚠️ **Content Policy Violation**\n\nYour prompt was rejected by AI safety filters. This usually happens when:\n• The prompt contains copyrighted characters (e.g., Spider-Man, Mickey Mouse)\n• The prompt describes violence, weapons, or inappropriate content\n• The prompt mentions real public figures\n\n💡 **Tips:** Try describing your image without brand names or copyrighted references.`;
-                    }
-
-                    await message.reply(userMessage);
-
-                    // Log failed image generation
-                    this.addBotLog(botId, 'Error', `❌ Image generation failed: ${result.error || 'Unknown error'}`, {
-                        user: message.author.displayName || message.author.username,
-                        channel: (message.channel as TextChannel).name
-                    });
-                }
             } else {
                 // Chat mode (auto)
+                // Check intent for image generation (Auto switching)
+                try {
+                    const intent = await AIService.detectIntent(message.content);
+                    if (intent === 'image') {
+                        // Find an image-capable provider
+                        let imageProvider = providerConfig;
+                        const isImageCapable = imageProvider.modeImage === true || imageProvider.modeImage === 'true' || imageProvider.models?.image;
+
+                        if (!isImageCapable) {
+                            // Search for one in the providers list
+                            imageProvider = providers.find((p: any) => p.modeImage === true || p.modeImage === 'true' || p.models?.image) || imageProvider;
+                        }
+
+                        // Determine image model
+                        const imageModel = imageProvider.models?.image ||
+                            (imageProvider.id?.includes('dall') ? imageProvider.id : 'auto');
+                        const imageEndpoint = imageProvider.endpoint || imageProvider.azureEndpoint || '';
+
+                        // Get display info for the image provider
+                        const imageProviderInfo = AIService.getProviders().find((p: { id: string }) => p.id === (imageProvider.provider || imageProvider.id));
+
+                        await this.processPublicImageGeneration(
+                            botId, message, imageProvider, providers, imageModel, imageEndpoint, imageProviderInfo
+                        );
+                        return;
+                    }
+                } catch (e) {
+                    console.log('[BotRuntime] Error detecting intent:', e);
+                }
+
                 // Get bot name and user name for AI context
                 const botName = client.user?.displayName || client.user?.username || 'AI Assistant';
                 const userName = message.author.displayName || message.author.username || 'User';
@@ -3796,5 +3673,187 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
         }
         this.activeBots.clear();
         console.log(`[BotRuntime] All bots shut down`);
+    }
+
+    // Helper to process public image generation
+    static async processPublicImageGeneration(
+        botId: string,
+        message: Message,
+        providerConfig: any,
+        providers: any[],
+        model: string,
+        endpoint: string,
+        providerInfo: any
+    ) {
+        // 3-Step Image Generation: Vision → Rewrite → Generate
+        await message.react('🎨');
+
+        let finalPrompt = message.content;
+        let imageDescription = '';
+
+        // Step 1: Check for image attachments and analyze with vision
+        const imageAttachments = message.attachments.filter(att =>
+            att.contentType?.startsWith('image/') ||
+            att.url?.match(/\.(jpg|jpeg|png|gif|webp)$/i)
+        );
+
+        if (imageAttachments.size > 0) {
+            const attachment = imageAttachments.first();
+            if (attachment) {
+                // Find a vision-capable provider - use provider ID fallback for comparison
+                const visionProvider = providers.find((p: any) =>
+                    (p.modeVision === true || p.modeVision === 'true') &&
+                    ['gemini', 'openai', 'claude'].includes(p.provider || p.id)
+                ) || providers.find((p: any) =>
+                    p.modeVision === true || p.modeVision === 'true'
+                ) || providers.find((p: any) =>
+                    ['gemini', 'openai', 'claude'].includes(p.provider || p.id) && p.apiKey
+                );
+
+                if (visionProvider) {
+                    try {
+                        await message.react('🔍');
+                        console.log(`[BotRuntime] Analyzing reference image with ${visionProvider.id}...`);
+
+                        // Get the vision model from provider config, or use default
+                        const visionModel = visionProvider.models?.vision ||
+                            ((visionProvider.provider || visionProvider.id) === 'gemini' ? 'gemini-2.0-flash' :
+                                (visionProvider.provider || visionProvider.id) === 'openai' ? 'gpt-4o' :
+                                    (visionProvider.provider || visionProvider.id) === 'claude' ? 'claude-3-5-sonnet-20241022' : 'auto');
+
+                        imageDescription = await AIService.analyzeImage({
+                            provider: visionProvider.provider || visionProvider.id,
+                            apiKey: visionProvider.apiKey,
+                            imageUrl: attachment.url,
+                            prompt: "Describe this image for recreating it. Focus on: colors, shapes, text/letters, style, and composition. Be specific and detailed.",
+                            azureEndpoint: visionProvider.endpoint || visionProvider.azureEndpoint
+                        });
+
+                        console.log(`[BotRuntime] Image description: ${imageDescription.substring(0, 100)}...`);
+
+                        // Track vision usage
+                        const estimatedVisionTokens = 1000 + Math.ceil(imageDescription.length / 4);
+                        await TokenUsageService.recordUsage(
+                            botId,
+                            visionProvider.id,
+                            visionProvider.label || visionProvider.name || visionProvider.id,
+                            estimatedVisionTokens,
+                            'vision',
+                            visionModel,
+                            message.author.id,
+                            message.author.displayName || message.author.username
+                        );
+                    } catch (err) {
+                        console.error('[BotRuntime] Vision analysis failed:', err);
+                    }
+                } else {
+                    console.log('[BotRuntime] No vision provider found, proceeding without image analysis');
+                }
+            }
+        }
+
+        // Step 2: Rewrite prompt to be safe (remove copyrighted content)
+        const rewriteProvider = providers.find((p: any) =>
+            (p.modeChat === true || p.modeChat === 'true') &&
+            ['gemini', 'openai', 'claude', 'groq'].includes(p.provider || p.id)
+        ) || providers.find((p: any) =>
+            p.modeChat === true || p.modeChat === 'true'
+        ) || providers.find((p: any) =>
+            ['gemini', 'openai', 'claude', 'groq'].includes(p.provider || p.id) && p.apiKey
+        );
+
+        if (rewriteProvider) {
+            try {
+                await message.react('✨');
+                console.log(`[BotRuntime] Rewriting prompt with ${rewriteProvider.id}...`);
+
+                // Get the chat model from provider config, or use default
+                const pType = rewriteProvider.provider || rewriteProvider.id;
+                const chatModel = rewriteProvider.models?.chat ||
+                    (pType === 'gemini' ? 'gemini-2.5-flash' :
+                        pType === 'openai' ? 'gpt-4o' :
+                            pType === 'claude' ? 'claude-3-5-sonnet-20241022' :
+                                pType === 'groq' ? 'llama-3.3-70b-versatile' : 'auto');
+
+                finalPrompt = await AIService.rewritePromptForImage({
+                    provider: pType,
+                    apiKey: rewriteProvider.apiKey,
+                    prompt: message.content,
+                    imageDescription: imageDescription || undefined,
+                    azureEndpoint: rewriteProvider.endpoint || rewriteProvider.azureEndpoint,
+                    model: chatModel
+                });
+
+                console.log(`[BotRuntime] Final prompt: ${finalPrompt.substring(0, 100)}...`);
+
+                // Track rewrite usage
+                const estimatedRewriteTokens = 200 + Math.ceil(((imageDescription?.length || 0) + message.content.length + finalPrompt.length) / 4);
+                await TokenUsageService.recordUsage(
+                    botId,
+                    rewriteProvider.id,
+                    rewriteProvider.label || rewriteProvider.name || rewriteProvider.id,
+                    estimatedRewriteTokens,
+                    'rewrite',
+                    chatModel,
+                    message.author.id,
+                    message.author.displayName || message.author.username
+                );
+            } catch (err) {
+                console.error('[BotRuntime] Prompt rewrite failed, using original:', err);
+                finalPrompt = imageDescription ? `${imageDescription}. ${message.content}` : message.content;
+            }
+        }
+
+        // Step 3: Generate image with safe prompt
+        const result = await AIService.generateImage({
+            provider: providerConfig.provider || providerConfig.id,
+            apiKey: providerConfig.apiKey,
+            prompt: finalPrompt,
+            model: model,
+            azureEndpoint: endpoint || providerConfig.azureEndpoint || providerConfig.endpoint || ''
+        });
+
+        if (!result.error && result.imageUrl) {
+            const embed = new EmbedBuilder()
+                .setColor(0xF59E0B)
+                .setTitle('🎨 AI Generated Image')
+                .setImage(result.imageUrl)
+                .setFooter({ text: `Requested by ${message.author.displayName}` })
+                .setTimestamp();
+            await message.reply({ embeds: [embed] });
+
+            // Log successful image generation
+            this.addBotLog(botId, 'AI', `🎨 Image generated for ${message.author.displayName || message.author.username}`, {
+                user: message.author.displayName || message.author.username,
+                channel: (message.channel as TextChannel).name
+            });
+
+            // Track image usage with cost
+            await TokenUsageService.recordImageUsage(
+                botId,
+                providerConfig.id,
+                providerInfo?.name || providerConfig.label || providerConfig.id,
+                model || 'unknown',
+                1, // 1 image generated
+                message.author.id,
+                message.author.displayName || message.author.username
+            );
+        } else {
+            // Check if it's a content policy error and provide better message
+            const errorMsg = result.error || result.content || 'Failed to generate image';
+            let userMessage = `❌ ${errorMsg}`;
+
+            if (errorMsg.includes('safety system') || errorMsg.includes('content_policy')) {
+                userMessage = `⚠️ **Content Policy Violation**\n\nYour prompt was rejected by AI safety filters. This usually happens when:\n• The prompt contains copyrighted characters (e.g., Spider-Man, Mickey Mouse)\n• The prompt describes violence, weapons, or inappropriate content\n• The prompt mentions real public figures\n\n💡 **Tips:** Try describing your image without brand names or copyrighted references.`;
+            }
+
+            await message.reply(userMessage);
+
+            // Log failed image generation
+            this.addBotLog(botId, 'Error', `❌ Image generation failed: ${result.error || 'Unknown error'}`, {
+                user: message.author.displayName || message.author.username,
+                channel: (message.channel as TextChannel).name
+            });
+        }
     }
 }
