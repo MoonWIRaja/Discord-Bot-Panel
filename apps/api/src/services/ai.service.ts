@@ -878,9 +878,19 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
         return { content: '', error: '❌ Azure endpoint not configured. Please set Azure Endpoint in AI Provider settings.' };
     }
 
-    const endpoint = config.azureEndpoint.replace(/\/$/, '');
+    // Clean endpoint - extract base URL, remove any existing paths and query strings
+    let endpoint = config.azureEndpoint.replace(/\/$/, '');
+
+    // Remove common Azure OpenAI paths to get base URL
+    endpoint = endpoint.replace(/\/openai\/deployments\/.*$/i, '');
+    endpoint = endpoint.replace(/\/openai\/responses.*$/i, '');
+    endpoint = endpoint.replace(/\/openai\/.*$/i, '');
+    endpoint = endpoint.replace(/\?api-version=.*$/i, '');
+
     const model = config.model || config.azureDeployment || 'gpt-4o';
     
+    console.log(`[AIService] Azure cleaned endpoint: ${endpoint}, model: ${model}, deployment: ${config.azureDeployment || 'not set'}`);
+
     // Detect endpoint type
     const isAnthropic = endpoint.includes('/anthropic');
     const isServerless = endpoint.includes('.models.ai.azure.com') || endpoint.includes('/models/');
