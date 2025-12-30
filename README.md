@@ -94,11 +94,393 @@ Your bot can use **23 built-in tools** - all FREE, no API keys required:
 
 ### Required Software
 
-| Software | Version | Download |
-|----------|---------|----------|
-| **Node.js** | v18.0.0+ | [nodejs.org](https://nodejs.org/) |
-| **PostgreSQL** | v14.0+ | [postgresql.org](https://www.postgresql.org/download/) |
-| **Git** | Latest | [git-scm.com](https://git-scm.com/) |
+| Software | Minimum Version | Recommended | Download |
+|----------|-----------------|-------------|----------|
+| **Node.js** | v18.0.0 | v20.x LTS | [nodejs.org](https://nodejs.org/) |
+| **PostgreSQL** | v14.0 | v18.x | [postgresql.org](https://www.postgresql.org/download/) |
+| **Git** | Any | Latest | [git-scm.com](https://git-scm.com/) |
+
+### System Requirements
+
+- **RAM**: Minimum 2GB, Recommended 4GB+
+- **Storage**: 500MB free space
+- **OS**: Windows 10/11, macOS 10.15+, Ubuntu 20.04+
+
+---
+
+## 🎯 Complete Installation Guide (A to Z)
+
+This section provides **step-by-step instructions** for complete beginners.
+
+### Part 1: Install Prerequisites
+
+#### Windows
+
+**1.1 Install Node.js**
+
+1. Go to [nodejs.org](https://nodejs.org/)
+2. Download **LTS version** (v20.x recommended)
+3. Run installer → Click "Next" through all steps
+4. ✅ Verify installation:
+   ```cmd
+   node --version
+   npm --version
+   ```
+   Should show version numbers (e.g., `v20.11.0`)
+
+**1.2 Install PostgreSQL 18**
+
+1. Go to [postgresql.org/download/windows](https://www.postgresql.org/download/windows/)
+2. Download **PostgreSQL 18** installer
+3. Run installer:
+   - **Password**: Enter `postgres` (or remember your custom password)
+   - **Port**: Keep default `5432`
+   - **Locale**: Default
+   - **Components**: Select all (PostgreSQL Server, pgAdmin 4, Command Line Tools)
+4. Wait for installation to complete
+5. ✅ Verify installation:
+   ```cmd
+   psql --version
+   ```
+   Should show: `psql (PostgreSQL) 18.x`
+
+**1.3 Install Git**
+
+1. Go to [git-scm.com](https://git-scm.com/)
+2. Download for Windows
+3. Run installer → Use default settings
+4. ✅ Verify installation:
+   ```cmd
+   git --version
+   ```
+
+#### macOS
+
+**1.1 Install Homebrew** (if not already installed)
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+**1.2 Install Node.js**
+
+```bash
+brew install node@20
+
+# Verify
+node --version
+npm --version
+```
+
+**1.3 Install PostgreSQL 18**
+
+```bash
+brew install postgresql@18
+
+# Start PostgreSQL service
+brew services start postgresql@18
+
+# Verify
+psql --version
+```
+
+**1.4 Install Git**
+
+```bash
+brew install git
+
+# Verify
+git --version
+```
+
+#### Linux (Ubuntu/Debian)
+
+**1.1 Install Node.js 20**
+
+```bash
+# Add NodeSource repository
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+
+# Install Node.js
+sudo apt-get install -y nodejs
+
+# Verify
+node --version
+npm --version
+```
+
+**1.2 Install PostgreSQL 18**
+
+```bash
+# Add PostgreSQL repository
+sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+
+# Update and install
+sudo apt-get update
+sudo apt-get install -y postgresql-18
+
+# Start service
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+
+# Set password for postgres user
+sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'postgres';"
+
+# Verify
+psql --version
+```
+
+**1.3 Install Git**
+
+```bash
+sudo apt-get install -y git
+
+# Verify
+git --version
+```
+
+---
+
+### Part 2: Download & Setup Project
+
+**2.1 Clone Repository**
+
+Open terminal/command prompt:
+
+```bash
+# Navigate to where you want the project (e.g., Desktop)
+cd Desktop
+
+# Clone repository
+git clone https://github.com/MoonWIRaja/Discord-Bot-Panel.git
+
+# Enter directory
+cd Discord-Bot-Panel
+```
+
+**2.2 Install Dependencies**
+
+```bash
+# This will install all required packages (may take 2-5 minutes)
+npm install
+```
+
+Expected output: No errors, many packages installed
+
+---
+
+### Part 3: Database Setup
+
+**3.1 Create Database**
+
+**Option A: Using psql (All platforms)**
+
+```bash
+# Connect to PostgreSQL
+psql -U postgres
+
+# You'll be prompted for password (enter: postgres)
+# Then in psql shell, run:
+CREATE DATABASE discord_bot_panel;
+
+# Verify database was created
+\l
+
+# Exit psql
+\q
+```
+
+**Option B: Using automated script**
+
+```bash
+npm run db:create -w apps/api
+```
+
+**3.2 Initialize Database Schema**
+
+```bash
+# Apply database tables and structure
+npm run db:push -w apps/api
+```
+
+Expected output:
+```
+✅ Pushing schema to database...
+✅ Done!
+```
+
+**3.3 Add Default Templates**
+
+```bash
+# Insert pre-built bot templates
+npm run seed -w apps/api
+```
+
+Expected output:
+```
+[Seed] ✅ Added default template: Live Notification Bot
+[Seed] ✅ Added default template: Music Bot
+[Seed] ✅ Added default template: AI Assistant Bot
+```
+
+---
+
+### Part 4: Environment Configuration
+
+**4.1 Create .env File**
+
+```bash
+# Windows
+copy .env.example .env
+
+# macOS/Linux
+cp .env.example .env
+```
+
+**4.2 Generate Security Keys**
+
+Run these commands to generate secure random keys:
+
+```bash
+# Generate BETTER_AUTH_SECRET
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# Generate BOT_TOKEN_ENCRYPTION_KEY
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+You'll get output like:
+```
+a1b2c3d4e5f6...  (64 characters)
+```
+
+**4.3 Edit .env File**
+
+Open `.env` in text editor and update:
+
+```env
+# 1. Database (check username/password match your PostgreSQL)
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/discord_bot_panel"
+
+# 2. Paste your generated keys here
+BETTER_AUTH_SECRET=paste_your_first_generated_key_here
+BOT_TOKEN_ENCRYPTION_KEY=paste_your_second_generated_key_here
+
+# 3. Discord OAuth (we'll set this in next part)
+DISCORD_CLIENT_ID=your_discord_client_id
+DISCORD_CLIENT_SECRET=your_discord_client_secret
+
+# 4. Server location (optional - for AI tools)
+SERVER_TIMEZONE=Asia/Kuala_Lumpur
+SERVER_CITY=Kuala Lumpur
+SERVER_COUNTRY=Malaysia
+```
+
+Save the file.
+
+---
+
+### Part 5: Discord OAuth Setup
+
+**5.1 Create Discord Application**
+
+1. Go to [discord.com/developers/applications](https://discord.com/developers/applications)
+2. Click **"New Application"**
+3. Enter name: `My Bot Panel` (or any name)
+4. Click **"Create"**
+
+**5.2 Get OAuth Credentials**
+
+1. In your application, go to **OAuth2** → **General**
+2. Copy **CLIENT ID** → Paste in `.env` as `DISCORD_CLIENT_ID`
+3. Click **"Reset Secret"** → Copy  `<br/>4. Paste in `.env` as `DISCORD_CLIENT_SECRET`
+
+**5.3 Add Redirect URL**
+
+1. Still in **OAuth2** → **General**
+2. Click **"Add Redirect"**
+3. Enter:
+   ```
+   http://localhost:4000/api/auth/callback/discord
+   ```
+4. Click **"Save Changes"**
+
+---
+
+### Part 6: First Run
+
+**6.1 Start Development Server**
+
+```bash
+npm run dev
+```
+
+Expected output:
+```
+╔══════════════════════════════════════════════╗
+║          🤖 Discord Bot Panel - Web          ║
+╠══════════════════════════════════════════════╣
+║  🌐 Public URL: http://localhost:5173        ║
+║  🖥️  Local:      http://localhost:5173      ║
+╚══════════════════════════════════════════════╝
+
+API Server running on http://localhost:4000
+```
+
+**6.2 Access Web Dashboard**
+
+1. Open browser
+2. Go to: **http://localhost:5173**
+3. You should see login page
+4. Click **"Continue with Discord"**
+5. Authorize the application
+6. You'll be redirected to Dashboard!
+
+---
+
+### Part 7: Create Your First Bot
+
+**7.1 Add a Bot**
+
+1. In Dashboard, click **"+ Add Bot"**
+2. Fill in:
+   - **Bot Name**: `My First Bot`
+   - **Discord Bot Token**: Get from [discord.com/developers/applications](https://discord.com/developers/applications)
+     - Go to your application → **Bot** → Click **"Reset Token"**
+     - Copy the token
+3. Click **"Create Bot"**
+
+**7.2 Start Your Bot**
+
+1. Click **"Start"** button
+2. Status should change to **"Online"** (green)
+3. Check Discord - your bot should be online!
+
+**7.3 Use a Template**
+
+1. Go to **Templates** page
+2. Click **"Import"** on **"Music Bot"** or **"AI Assistant Bot"**
+3. Select your bot
+4. Click **"Import"**
+5. Go to **Studio** to view the flow
+6. Click **"Save"**
+
+**7.4 Test Your Bot**
+
+1. Invite bot to your server:
+   - Go to Discord Developer Portal
+   - **OAuth2** → **URL Generator**
+   - Select scopes: `bot`, `applications.commands`
+   -Select permissions: `Administrator` (or specific permissions)
+   - Copy generated URL, paste in browser
+   - Add to your test server
+
+2. In Discord, test commands:
+   - `/play` - If you imported Music Bot
+   - `/aichat` - If you imported AI Assistant Bot
+
+**Done! 🎉 Your bot is now running!**
 
 ---
 
