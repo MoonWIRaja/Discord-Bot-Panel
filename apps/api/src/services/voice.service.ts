@@ -32,10 +32,19 @@ const require = createRequire(import.meta.url);
 const YTDlpWrapLib = require('yt-dlp-wrap');
 const YTDlpWrap = YTDlpWrapLib.default || YTDlpWrapLib;
 
-// Set FFmpeg path for prism-media / discord.js voice
-if (ffmpegPath) {
+// Set FFmpeg path - prefer system ffmpeg (more compatible), fallback to ffmpeg-static
+// ffmpeg-static binary can crash with SIGSEGV on some Linux distributions
+const systemFFmpegPath = process.platform === 'win32' ? null : 'ffmpeg'; // Use system ffmpeg on Linux/Mac
+if (systemFFmpegPath) {
+    // On Linux/Mac, try system ffmpeg first (more compatible)
+    process.env.FFMPEG_PATH = systemFFmpegPath;
+    console.log(`[VoiceService] Using system FFmpeg: ${systemFFmpegPath}`);
+} else if (ffmpegPath) {
+// On Windows, use ffmpeg-static
     process.env.FFMPEG_PATH = ffmpegPath as unknown as string;
-    console.log(`[VoiceService] Using FFmpeg from: ${ffmpegPath}`);
+    console.log(`[VoiceService] Using ffmpeg-static: ${ffmpegPath}`);
+} else {
+    console.warn('[VoiceService] No FFmpeg found! Voice features may not work.');
 }
 
 // Ensure yt-dlp binary exists
