@@ -3161,6 +3161,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                     mode: detectedMode as any,
                     azureEndpoint: selectedProviderConfig.azureEndpoint || '',
                     azureDeployment: selectedProviderConfig.azureDeployment || '',
+                    azureType: selectedProviderConfig.azureType || 'auto',
                     tools: tools
                 }, messages);
 

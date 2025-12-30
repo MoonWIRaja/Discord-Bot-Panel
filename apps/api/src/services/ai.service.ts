@@ -36,6 +36,7 @@ export interface AIConfig {
     // Provider-specific
     azureEndpoint?: string;
     azureDeployment?: string;
+    azureType?: 'auto' | 'openai' | 'anthropic' | 'serverless' | 'inference' | 'github' | 'responses' | 'custom';
     ollamaHost?: string;
 }
 
@@ -881,25 +882,44 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
     // Clean endpoint - extract base URL, remove any existing paths and query strings
     let endpoint = config.azureEndpoint.replace(/\/$/, '');
 
+    // Store original endpoint for some Azure types that need full URL
+    const originalEndpoint = endpoint;
+
     // Remove common Azure OpenAI paths to get base URL
     endpoint = endpoint.replace(/\/openai\/deployments\/.*$/i, '');
     endpoint = endpoint.replace(/\/openai\/responses.*$/i, '');
     endpoint = endpoint.replace(/\/openai\/.*$/i, '');
+    endpoint = endpoint.replace(/\/anthropic\/.*$/i, '');
+    endpoint = endpoint.replace(/\/models\/.*$/i, '');
+    endpoint = endpoint.replace(/\/v1\/.*$/i, '');
     endpoint = endpoint.replace(/\?api-version=.*$/i, '');
 
     const model = config.model || config.azureDeployment || 'gpt-4o';
     
-    console.log(`[AIService] Azure cleaned endpoint: ${endpoint}, model: ${model}, deployment: ${config.azureDeployment || 'not set'}`);
+    // Determine Azure type - explicit config takes priority, then URL detection as fallback
+    let azureType = config.azureType || 'auto';
 
-    // Detect endpoint type
-    const isAnthropic = endpoint.includes('/anthropic');
-    const isServerless = endpoint.includes('.models.ai.azure.com') || endpoint.includes('/models/');
-    const isInference = endpoint.includes('.services.ai.azure.com') && !isAnthropic;
+    if (azureType === 'auto') {
+        // Fallback to URL-based detection for backward compatibility
+        if (originalEndpoint.includes('/anthropic')) {
+            azureType = 'anthropic';
+        } else if (originalEndpoint.includes('.models.ai.azure.com') || originalEndpoint.includes('/models/')) {
+            azureType = 'serverless';
+        } else if (originalEndpoint.includes('.services.ai.azure.com') && !originalEndpoint.includes('/anthropic')) {
+            azureType = 'inference';
+        } else if (originalEndpoint.includes('models.inference.ai.azure.com') || originalEndpoint.includes('github')) {
+            azureType = 'github';
+        } else if (originalEndpoint.includes('/openai/responses')) {
+            azureType = 'responses';
+        } else {
+            azureType = 'openai';
+        }
+    }
     
-    console.log(`[AIService] Azure endpoint type: ${isAnthropic ? 'Anthropic' : isServerless ? 'Serverless' : isInference ? 'AI Inference' : 'OpenAI'}`);
+    console.log(`[AIService] Azure type: ${azureType}, endpoint: ${endpoint}, model: ${model}, deployment: ${config.azureDeployment || 'not set'}`);
     
     // 1. Azure Anthropic (Claude) - uses Claude messages API
-    if (isAnthropic) {
+    if (azureType === 'anthropic') {
         try {
             // Extract system prompt - prefer first system message
             const systemMessage = messages.find(m => m.role === 'system');
@@ -944,7 +964,7 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
     
     // 2. Azure AI Serverless (Llama, Mistral, DeepSeek, Cohere, xAI, etc.)
     // Endpoint format: https://{model-name}.{region}.models.ai.azure.com/v1/chat/completions
-    if (isServerless) {
+    if (azureType === 'serverless' || azureType === 'github') {
         try {
             // Serverless endpoints use OpenAI-compatible format
             const apiUrl = endpoint.includes('/v1/') ? endpoint : `${endpoint}/v1/chat/completions`;
@@ -1008,7 +1028,7 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
     
     // 3. Azure AI Inference (Generic OpenAI-compatible)
     // Endpoint format: https://{resource}.services.ai.azure.com/models/chat/completions
-    if (isInference) {
+    if (azureType === 'inference') {
         try {
             const apiUrl = endpoint.includes('/chat/completions') ? endpoint : `${endpoint}/models/chat/completions`;
             

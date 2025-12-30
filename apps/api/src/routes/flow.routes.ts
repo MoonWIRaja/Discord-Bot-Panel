@@ -138,7 +138,13 @@ router.post('/', async (req, res) => {
                 // Azure/Ollama specific
                 azureEndpoint: data.azureEndpoint || '',
                 azureDeployment: data.azureDeployment || '',
-                ollamaHost: data.ollamaHost || ''
+                azureType: data.azureType || 'auto', // openai, anthropic, serverless, inference, github, custom, auto
+                ollamaHost: data.ollamaHost || '',
+                // Individual model properties (new format)
+                modelChat: data.modelChat || '',
+                modelCode: data.modelCode || '',
+                modelImage: data.modelImage || '',
+                modelVision: data.modelVision || ''
               });
 
               // First enabled provider is default
