@@ -382,18 +382,18 @@ router.post('/ai/fetch-models', async (req, res) => {
               break;
             case 'openai':
               testUrl = 'https://api.openai.com/v1/chat/completions';
-              testBody = { model: model.id, messages: [{ role: 'user', content: 'test' }], max_tokens: 1 };
+              testBody = { model: model.id, messages: [{ role: 'user', content: 'test' }], max_tokens: 20 };
               headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
               break;
             case 'groq':
               testUrl = 'https://api.groq.com/openai/v1/chat/completions';
-              testBody = { model: model.id, messages: [{ role: 'user', content: 'test' }], max_tokens: 1 };
+              testBody = { model: model.id, messages: [{ role: 'user', content: 'test' }], max_tokens: 20 };
               headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
               break;
             case 'azure':
               if (endpoint?.includes('/anthropic')) {
                 testUrl = `${endpoint.replace(/\/$/, '')}/v1/messages`;
-                testBody = { model: model.id, max_tokens: 1, messages: [{ role: 'user', content: 'test' }] };
+                testBody = { model: model.id, max_tokens: 20, messages: [{ role: 'user', content: 'test' }] };
                 headers = { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' };
               }
               break;
@@ -500,19 +500,19 @@ router.post('/ai/deploy-model', async (req, res) => {
           headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
         } else {
           testUrl = 'https://api.openai.com/v1/chat/completions';
-          testBody = { model: modelName, messages: [{ role: 'user', content: 'test' }], max_tokens: 1 };
+          testBody = { model: modelName, messages: [{ role: 'user', content: 'test' }], max_tokens: 20 };
           headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
         }
         break;
       case 'groq':
         testUrl = 'https://api.groq.com/openai/v1/chat/completions';
-        testBody = { model: modelName, messages: [{ role: 'user', content: 'test' }], max_tokens: 1 };
+        testBody = { model: modelName, messages: [{ role: 'user', content: 'test' }], max_tokens: 20 };
         headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
         break;
       case 'azure':
         if (endpoint?.includes('/anthropic')) {
           testUrl = `${endpoint.replace(/\/$/, '')}/v1/messages`;
-          testBody = { model: modelName, max_tokens: 1, messages: [{ role: 'user', content: 'test' }] };
+          testBody = { model: modelName, max_tokens: 20, messages: [{ role: 'user', content: 'test' }] };
           headers = { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' };
         } else if (endpoint) {
           // Clean endpoint - extract base URL only (remove /openai and anything after)
@@ -529,14 +529,14 @@ router.post('/ai/deploy-model', async (req, res) => {
           } else {
             // Chat models use chat/completions endpoint
             testUrl = `${baseEndpoint}/openai/deployments/${modelName}/chat/completions?api-version=2024-02-01`;
-            testBody = { messages: [{ role: 'user', content: 'test' }], max_tokens: 1 };
+            testBody = { messages: [{ role: 'user', content: 'test' }], max_tokens: 20 };
             headers = { 'api-key': apiKey, 'Content-Type': 'application/json' };
           }
         }
         break;
       case 'claude':
         testUrl = 'https://api.anthropic.com/v1/messages';
-        testBody = { model: modelName, max_tokens: 1, messages: [{ role: 'user', content: 'test' }] };
+        testBody = { model: modelName, max_tokens: 20, messages: [{ role: 'user', content: 'test' }] };
         headers = { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' };
         break;
     }
