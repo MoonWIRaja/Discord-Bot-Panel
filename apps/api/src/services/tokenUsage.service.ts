@@ -402,19 +402,27 @@ export class TokenUsageService {
      */
     static async getUsageSummary(botId: string): Promise<UsageSummary[]> {
         try {
-            // First, check if there are AI providers configured and initialize them if needed
+            // First, fetch bot config to find configured providers
             try {
-                const { aiConfigs } = await import('../db/schema.js');
-                const configs = await db.select().from(aiConfigs)
-                    .where(eq(aiConfigs.botId, botId));
-                
-                for (const config of configs) {
-                    if (config.isEnabled) {
-                        await this.initializeProvider(botId, config.provider, config.provider);
+                const botData = await db.select({
+                    config: bots.config
+                })
+                    .from(bots)
+                    .where(eq(bots.id, botId));
+
+                if (botData.length > 0 && botData[0].config) {
+                    const config = botData[0].config as any;
+                    // Check if config.ai.providers exists
+                    if (config.ai && Array.isArray(config.ai.providers)) {
+                        for (const provider of config.ai.providers) {
+                            if (provider.id) {
+                                await this.initializeProvider(botId, provider.id, provider.id);
+                            }
+                        }
                     }
                 }
             } catch (e) {
-                // aiConfigs table might not exist, continue silently
+                console.error('[TokenUsageService] Error reading bot config:', e);
             }
 
             // Also check ai_token_usage table for providers that have been used
