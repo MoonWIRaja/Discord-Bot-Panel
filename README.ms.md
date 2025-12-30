@@ -271,6 +271,39 @@ npm install
 
 Output yang dijangka: Tiada error, banyak packages dipasang
 
+### Kemas Kini Ke Versi Terkini
+
+Jika anda sudah install projek dan nak update ke versi terkini dari GitHub:
+
+```bash
+# Navigate ke direktori projek
+cd Discord-Bot-Panel
+
+# Stop server dulu (jika sedang running)
+dbp stop
+# ATAU jika guna npm directly
+# Tekan Ctrl+C untuk stop
+
+# Ambil perubahan terkini dari GitHub
+git pull origin main
+
+# Update dependencies (kalau ada package baru ditambah)
+npm install
+
+# Update schema database (jika ada perubahan schema)
+npm run db:push -w apps/api
+
+# Restart server
+dbp start
+# ATAU
+npm run dev
+```
+
+**Nota Penting:**
+- Sentiasa **backup database** anda sebelum pull updates
+- Check release notes atau commit messages untuk breaking changes
+- Jika anda ubah kod, mungkin perlu resolve merge conflicts
+
 ---
 
 ### Bahagian 3: Setup Pangkalan Data

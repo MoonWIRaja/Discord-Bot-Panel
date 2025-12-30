@@ -499,6 +499,39 @@ cd Discord-Bot-Panel
 npm install
 ```
 
+### Updating to Latest Version
+
+If you already have the project installed and want to update to the latest version:
+
+```bash
+# Navigate to project directory
+cd Discord-Bot-Panel
+
+# Stop the server first (if running)
+dbp stop
+# OR if using npm directly
+# Press Ctrl+C to stop
+
+# Fetch latest changes from GitHub
+git pull origin main
+
+# Update dependencies (in case new packages were added)
+npm install
+
+# Update database schema (if there are schema changes)
+npm run db:push -w apps/api
+
+# Restart server
+dbp start
+# OR
+npm run dev
+```
+
+**Important Notes:**
+- Always **backup your database** before pulling updates (see troubleshooting section)
+- Check release notes or commit messages for breaking changes
+- If you modified code, you may need to resolve merge conflicts
+
 ---
 
 ## 🗄️ Database Setup (PostgreSQL)
