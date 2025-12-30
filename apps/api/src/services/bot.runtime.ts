@@ -2908,8 +2908,10 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                 }
 
                 // Step 3: Generate image with safe prompt
+                // Use generic provider type (e.g., 'azure') not unique ID (e.g., 'azure-d14207a4-...')
+                const genericProviderType = (providerConfig.provider || providerId) as string;
                 const result = await AIService.generateImage({
-                    provider: providerId,
+                    provider: genericProviderType,
                     apiKey: apiKey,
                     prompt: finalPrompt,
                     model: model,
