@@ -1949,6 +1949,8 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                         .map((m: any) => m.id || m.name);
                     console.log(`[BotRuntime] Using ${availableModels.length} fetchedModels for mode ${currentMode}`);
                 } else {
+                    console.log(`[BotRuntime] Using ${availableModels.length} fetchedModels for mode ${currentMode}`);
+                } else {
                     // No fetchedModels - user must Fetch Models in Studio first
                     console.log(`[BotRuntime] No fetchedModels for ${currentProviderId} mode ${currentMode} - use Fetch Models in Studio`);
                 }
@@ -2669,7 +2671,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                 providerId: selectedProvider.id,
                 providerEndpoint: correctEndpoint,
                 mode: mode === 'chat' ? 'auto' : 'image', // chat uses auto mode, image uses image mode
-                model: defaultModel,
+                model: mode === 'chat' ? '' : defaultModel, // Chat auto mode = empty (dynamic selection), Image = specific model
                 enabled: true
             };
 
@@ -2707,7 +2709,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                 .setColor(mode === 'chat' ? 0x10B981 : 0xF59E0B)
                 .setTitle(mode === 'chat' ? '💬 Public AI Chat' : '🎨 Public AI Image')
                 .setDescription(mode === 'chat'
-                    ? `This channel is now an **AI Chat Room**!\n\n**Provider:** ${providerInfo?.name || selectedProvider.id}\n**Mode:** Auto (detects intent)\n**Model:** ${defaultModel || 'auto'}\n\nJust type your message and AI will respond!`
+                    ? `This channel is now an **AI Chat Room**!\n\n**Provider:** ${providerInfo?.name || selectedProvider.id}\n**Mode:** Auto (detects intent)\n**Model:** Dynamic (auto-selected based on your message)\n\nJust type your message and AI will respond!`
                     : `This channel is now an **AI Image Generator**!\n\n**Selected Provider:** ${providerInfo?.name || selectedProvider.id}\n**Selected Model:** ${defaultModel || 'auto'}\n\n${allImageModels.length > 0 ? `📋 **Available Image Models:**\n${modelsListText}` : '⚠️ No image models found!'}\n\nDescribe what you want to see and AI will create it!`)
                 .setFooter({ text: `Public AI Channel • ${mode === 'chat' ? '/aichat' : '/aiimage'}` })
                 .setTimestamp();
@@ -2787,41 +2789,178 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
             const providerInfo = AIService.getProviders().find((p: { id: string }) => p.id === (providerConfig.provider || providerId));
 
             if (mode === 'image') {
-                await this.processPublicImageGeneration(
-                    botId, message, providerConfig, providers, model, savedEndpoint, providerInfo
+                // 3-Step Image Generation: Vision → Rewrite → Generate
+                await message.react('🎨');
+
+                let finalPrompt = message.content;
+                let imageDescription = '';
+
+                // Step 1: Check for image attachments and analyze with vision
+                const imageAttachments = message.attachments.filter(att =>
+                    att.contentType?.startsWith('image/') ||
+                    att.url?.match(/\.(jpg|jpeg|png|gif|webp)$/i)
                 );
-            } else {
-                // Chat mode (auto)
-                // Check intent for image generation (Auto switching)
-                try {
-                    const intent = await AIService.detectIntent(message.content);
-                    if (intent === 'image') {
-                        // Find an image-capable provider
-                        let imageProvider = providerConfig;
-                        const isImageCapable = imageProvider.modeImage === true || imageProvider.modeImage === 'true' || imageProvider.models?.image;
 
-                        if (!isImageCapable) {
-                            // Search for one in the providers list
-                            imageProvider = providers.find((p: any) => p.modeImage === true || p.modeImage === 'true' || p.models?.image) || imageProvider;
-                        }
-
-                        // Determine image model
-                        const imageModel = imageProvider.models?.image ||
-                            (imageProvider.id?.includes('dall') ? imageProvider.id : 'auto');
-                        const imageEndpoint = imageProvider.endpoint || imageProvider.azureEndpoint || '';
-
-                        // Get display info for the image provider
-                        const imageProviderInfo = AIService.getProviders().find((p: { id: string }) => p.id === (imageProvider.provider || imageProvider.id));
-
-                        await this.processPublicImageGeneration(
-                            botId, message, imageProvider, providers, imageModel, imageEndpoint, imageProviderInfo
+                if (imageAttachments.size > 0) {
+                    const attachment = imageAttachments.first();
+                    if (attachment) {
+                        // Find a vision-capable provider - prefer non-Azure first, then Azure with vision models
+                        const visionProvider = providers.find((p: any) =>
+                            (p.modeVision === true || p.modeVision === 'true') &&
+                            ['gemini', 'openai', 'claude'].includes(p.id)
+                        ) || providers.find((p: any) =>
+                            p.modeVision === true || p.modeVision === 'true'
+                        ) || providers.find((p: any) =>
+                            ['gemini', 'openai', 'claude'].includes(p.id) && p.apiKey
                         );
-                        return;
+
+                        if (visionProvider) {
+                            try {
+                                await message.react('🔍');
+                                console.log(`[BotRuntime] Analyzing reference image with ${visionProvider.id}...`);
+
+                                // Get the vision model from provider config, or use default
+                                const visionModel = visionProvider.models?.vision ||
+                                    (visionProvider.id === 'gemini' ? 'gemini-2.0-flash' :
+                                        visionProvider.id === 'openai' ? 'gpt-4o' :
+                                            visionProvider.id === 'claude' ? 'claude-3-5-sonnet-20241022' : 'auto');
+
+                                imageDescription = await AIService.analyzeImage({
+                                    provider: visionProvider.id,
+                                    apiKey: visionProvider.apiKey,
+                                    imageUrl: attachment.url,
+                                    prompt: "Describe this image for recreating it. Focus on: colors, shapes, text/letters, style, and composition. Be specific and detailed.",
+                                    azureEndpoint: visionProvider.endpoint || visionProvider.azureEndpoint
+                                });
+
+                                console.log(`[BotRuntime] Image description: ${imageDescription.substring(0, 100)}...`);
+
+                                // Track vision usage
+                                const estimatedVisionTokens = 1000 + Math.ceil(imageDescription.length / 4);
+                                await TokenUsageService.recordUsage(
+                                    botId,
+                                    visionProvider.id,
+                                    visionProvider.name || visionProvider.id,
+                                    estimatedVisionTokens,
+                                    'vision',
+                                    visionModel,
+                                    message.author.id,
+                                    message.author.displayName || message.author.username
+                                );
+                            } catch (err) {
+                                console.error('[BotRuntime] Vision analysis failed:', err);
+                            }
+                        } else {
+                            console.log('[BotRuntime] No vision provider found, proceeding without image analysis');
+                        }
                     }
-                } catch (e) {
-                    console.log('[BotRuntime] Error detecting intent:', e);
                 }
 
+                // Step 2: Rewrite prompt to be safe (remove copyrighted content)
+                // Prefer non-Azure providers first, then Azure with chat models
+                const rewriteProvider = providers.find((p: any) =>
+                    (p.modeChat === true || p.modeChat === 'true') &&
+                    ['gemini', 'openai', 'claude', 'groq'].includes(p.id)
+                ) || providers.find((p: any) =>
+                    p.modeChat === true || p.modeChat === 'true'
+                ) || providers.find((p: any) =>
+                    ['gemini', 'openai', 'claude', 'groq'].includes(p.id) && p.apiKey
+                );
+
+                if (rewriteProvider) {
+                    try {
+                        await message.react('✨');
+                        console.log(`[BotRuntime] Rewriting prompt with ${rewriteProvider.id}...`);
+
+                        // Get the chat model from provider config, or use default
+                        const chatModel = rewriteProvider.models?.chat ||
+                            (rewriteProvider.id === 'gemini' ? 'gemini-2.5-flash' :
+                                rewriteProvider.id === 'openai' ? 'gpt-4o' :
+                                    rewriteProvider.id === 'claude' ? 'claude-3-5-sonnet-20241022' :
+                                        rewriteProvider.id === 'groq' ? 'llama-3.3-70b-versatile' : 'auto');
+
+                        finalPrompt = await AIService.rewritePromptForImage({
+                            provider: rewriteProvider.id,
+                            apiKey: rewriteProvider.apiKey,
+                            prompt: message.content,
+                            imageDescription: imageDescription || undefined,
+                            azureEndpoint: rewriteProvider.endpoint || rewriteProvider.azureEndpoint,
+                            model: chatModel
+                        });
+
+                        console.log(`[BotRuntime] Final prompt: ${finalPrompt.substring(0, 100)}...`);
+
+                        // Track rewrite usage
+                        const estimatedRewriteTokens = 200 + Math.ceil(((imageDescription?.length || 0) + message.content.length + finalPrompt.length) / 4);
+                        await TokenUsageService.recordUsage(
+                            botId,
+                            rewriteProvider.id,
+                            rewriteProvider.name || rewriteProvider.id,
+                            estimatedRewriteTokens,
+                            'rewrite',
+                            chatModel,
+                            message.author.id,
+                            message.author.displayName || message.author.username
+                        );
+                    } catch (err) {
+                        console.error('[BotRuntime] Prompt rewrite failed, using original:', err);
+                        finalPrompt = imageDescription ? `${imageDescription}. ${message.content}` : message.content;
+                    }
+                }
+
+                // Step 3: Generate image with safe prompt
+                const result = await AIService.generateImage({
+                    provider: providerId,
+                    apiKey: apiKey,
+                    prompt: finalPrompt,
+                    model: model,
+                    azureEndpoint: channelConfig.providerEndpoint || providerConfig.azureEndpoint || providerConfig.endpoint || ''
+                });
+
+                if (!result.error && result.imageUrl) {
+                    const embed = new EmbedBuilder()
+                        .setColor(0xF59E0B)
+                        .setTitle('🎨 AI Generated Image')
+                        .setImage(result.imageUrl)
+                        .setFooter({ text: `Requested by ${message.author.displayName}` })
+                        .setTimestamp();
+                    await message.reply({ embeds: [embed] });
+
+                    // Log successful image generation
+                    this.addBotLog(botId, 'AI', `🎨 Image generated for ${message.author.displayName || message.author.username}`, {
+                        user: message.author.displayName || message.author.username,
+                        channel: (message.channel as TextChannel).name
+                    });
+
+                    // Track image usage with cost
+                    await TokenUsageService.recordImageUsage(
+                        botId,
+                        providerId,
+                        providerInfo?.name || providerId,
+                        model || 'unknown',
+                        1, // 1 image generated
+                        message.author.id,
+                        message.author.displayName || message.author.username
+                    );
+                } else {
+                    // Check if it's a content policy error and provide better message
+                    const errorMsg = result.error || result.content || 'Failed to generate image';
+                    let userMessage = `❌ ${errorMsg}`;
+
+                    if (errorMsg.includes('safety system') || errorMsg.includes('content_policy')) {
+                        userMessage = `⚠️ **Content Policy Violation**\n\nYour prompt was rejected by AI safety filters. This usually happens when:\n• The prompt contains copyrighted characters (e.g., Spider-Man, Mickey Mouse)\n• The prompt describes violence, weapons, or inappropriate content\n• The prompt mentions real public figures\n\n💡 **Tips:** Try describing your image without brand names or copyrighted references.`;
+                    }
+
+                    await message.reply(userMessage);
+
+                    // Log failed image generation
+                    this.addBotLog(botId, 'Error', `❌ Image generation failed: ${result.error || 'Unknown error'}`, {
+                        user: message.author.displayName || message.author.username,
+                        channel: (message.channel as TextChannel).name
+                    });
+                }
+            } else {
+                // Chat mode (auto)
                 // Get bot name and user name for AI context
                 const botName = client.user?.displayName || client.user?.username || 'AI Assistant';
                 const userName = message.author.displayName || message.author.username || 'User';
@@ -2932,12 +3071,40 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                 // Get tool definitions
                 const tools = ToolRegistry.getToolDefinitions();
 
+                // Dynamic model selection for auto mode
+                let selectedModel = model;
+                let detectedMode = 'chat';
+                const genericProviderId = (providerConfig.provider || providerId) as string;
+
+                if (!model || model === 'auto' || model === '') {
+                    // Detect intent from user message
+                    detectedMode = AIService.detectIntent(message.content);
+                    console.log(`[BotRuntime] Public chat - Detected intent: ${detectedMode}`);
+
+                    // Select model based on detected intent from provider config
+                    if (providerConfig.models && providerConfig.models[detectedMode]) {
+                        selectedModel = providerConfig.models[detectedMode];
+                    } else if (providerConfig.models && providerConfig.models.chat) {
+                        selectedModel = providerConfig.models.chat;
+                    } else {
+                        // Use default model for this provider
+                        selectedModel = AIService.getDefaultModel(genericProviderId);
+                    }
+
+                    // For Azure, use azureDeployment
+                    if (genericProviderId === 'azure' && providerConfig.azureDeployment) {
+                        selectedModel = providerConfig.azureDeployment;
+                    }
+
+                    console.log(`[BotRuntime] Public chat - Auto-selected model: ${selectedModel} for intent: ${detectedMode}`);
+                }
+
                 // Initial chat call
                 let result = await AIService.chat({
-                    provider: providerId,
+                    provider: genericProviderId as any,
                     apiKey: apiKey,
-                    model: model,
-                    mode: 'auto',
+                    model: selectedModel,
+                    mode: detectedMode as any,
                     azureEndpoint: providerConfig.azureEndpoint || '',
                     azureDeployment: providerConfig.azureDeployment || '',
                     tools: tools
@@ -3673,187 +3840,5 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
         }
         this.activeBots.clear();
         console.log(`[BotRuntime] All bots shut down`);
-    }
-
-    // Helper to process public image generation
-    static async processPublicImageGeneration(
-        botId: string,
-        message: Message,
-        providerConfig: any,
-        providers: any[],
-        model: string,
-        endpoint: string,
-        providerInfo: any
-    ) {
-        // 3-Step Image Generation: Vision → Rewrite → Generate
-        await message.react('🎨');
-
-        let finalPrompt = message.content;
-        let imageDescription = '';
-
-        // Step 1: Check for image attachments and analyze with vision
-        const imageAttachments = message.attachments.filter(att =>
-            att.contentType?.startsWith('image/') ||
-            att.url?.match(/\.(jpg|jpeg|png|gif|webp)$/i)
-        );
-
-        if (imageAttachments.size > 0) {
-            const attachment = imageAttachments.first();
-            if (attachment) {
-                // Find a vision-capable provider - use provider ID fallback for comparison
-                const visionProvider = providers.find((p: any) =>
-                    (p.modeVision === true || p.modeVision === 'true') &&
-                    ['gemini', 'openai', 'claude'].includes(p.provider || p.id)
-                ) || providers.find((p: any) =>
-                    p.modeVision === true || p.modeVision === 'true'
-                ) || providers.find((p: any) =>
-                    ['gemini', 'openai', 'claude'].includes(p.provider || p.id) && p.apiKey
-                );
-
-                if (visionProvider) {
-                    try {
-                        await message.react('🔍');
-                        console.log(`[BotRuntime] Analyzing reference image with ${visionProvider.id}...`);
-
-                        // Get the vision model from provider config, or use default
-                        const visionModel = visionProvider.models?.vision ||
-                            ((visionProvider.provider || visionProvider.id) === 'gemini' ? 'gemini-2.0-flash' :
-                                (visionProvider.provider || visionProvider.id) === 'openai' ? 'gpt-4o' :
-                                    (visionProvider.provider || visionProvider.id) === 'claude' ? 'claude-3-5-sonnet-20241022' : 'auto');
-
-                        imageDescription = await AIService.analyzeImage({
-                            provider: visionProvider.provider || visionProvider.id,
-                            apiKey: visionProvider.apiKey,
-                            imageUrl: attachment.url,
-                            prompt: "Describe this image for recreating it. Focus on: colors, shapes, text/letters, style, and composition. Be specific and detailed.",
-                            azureEndpoint: visionProvider.endpoint || visionProvider.azureEndpoint
-                        });
-
-                        console.log(`[BotRuntime] Image description: ${imageDescription.substring(0, 100)}...`);
-
-                        // Track vision usage
-                        const estimatedVisionTokens = 1000 + Math.ceil(imageDescription.length / 4);
-                        await TokenUsageService.recordUsage(
-                            botId,
-                            visionProvider.id,
-                            visionProvider.label || visionProvider.name || visionProvider.id,
-                            estimatedVisionTokens,
-                            'vision',
-                            visionModel,
-                            message.author.id,
-                            message.author.displayName || message.author.username
-                        );
-                    } catch (err) {
-                        console.error('[BotRuntime] Vision analysis failed:', err);
-                    }
-                } else {
-                    console.log('[BotRuntime] No vision provider found, proceeding without image analysis');
-                }
-            }
-        }
-
-        // Step 2: Rewrite prompt to be safe (remove copyrighted content)
-        const rewriteProvider = providers.find((p: any) =>
-            (p.modeChat === true || p.modeChat === 'true') &&
-            ['gemini', 'openai', 'claude', 'groq'].includes(p.provider || p.id)
-        ) || providers.find((p: any) =>
-            p.modeChat === true || p.modeChat === 'true'
-        ) || providers.find((p: any) =>
-            ['gemini', 'openai', 'claude', 'groq'].includes(p.provider || p.id) && p.apiKey
-        );
-
-        if (rewriteProvider) {
-            try {
-                await message.react('✨');
-                console.log(`[BotRuntime] Rewriting prompt with ${rewriteProvider.id}...`);
-
-                // Get the chat model from provider config, or use default
-                const pType = rewriteProvider.provider || rewriteProvider.id;
-                const chatModel = rewriteProvider.models?.chat ||
-                    (pType === 'gemini' ? 'gemini-2.5-flash' :
-                        pType === 'openai' ? 'gpt-4o' :
-                            pType === 'claude' ? 'claude-3-5-sonnet-20241022' :
-                                pType === 'groq' ? 'llama-3.3-70b-versatile' : 'auto');
-
-                finalPrompt = await AIService.rewritePromptForImage({
-                    provider: pType,
-                    apiKey: rewriteProvider.apiKey,
-                    prompt: message.content,
-                    imageDescription: imageDescription || undefined,
-                    azureEndpoint: rewriteProvider.endpoint || rewriteProvider.azureEndpoint,
-                    model: chatModel
-                });
-
-                console.log(`[BotRuntime] Final prompt: ${finalPrompt.substring(0, 100)}...`);
-
-                // Track rewrite usage
-                const estimatedRewriteTokens = 200 + Math.ceil(((imageDescription?.length || 0) + message.content.length + finalPrompt.length) / 4);
-                await TokenUsageService.recordUsage(
-                    botId,
-                    rewriteProvider.id,
-                    rewriteProvider.label || rewriteProvider.name || rewriteProvider.id,
-                    estimatedRewriteTokens,
-                    'rewrite',
-                    chatModel,
-                    message.author.id,
-                    message.author.displayName || message.author.username
-                );
-            } catch (err) {
-                console.error('[BotRuntime] Prompt rewrite failed, using original:', err);
-                finalPrompt = imageDescription ? `${imageDescription}. ${message.content}` : message.content;
-            }
-        }
-
-        // Step 3: Generate image with safe prompt
-        const result = await AIService.generateImage({
-            provider: providerConfig.provider || providerConfig.id,
-            apiKey: providerConfig.apiKey,
-            prompt: finalPrompt,
-            model: model,
-            azureEndpoint: endpoint || providerConfig.azureEndpoint || providerConfig.endpoint || ''
-        });
-
-        if (!result.error && result.imageUrl) {
-            const embed = new EmbedBuilder()
-                .setColor(0xF59E0B)
-                .setTitle('🎨 AI Generated Image')
-                .setImage(result.imageUrl)
-                .setFooter({ text: `Requested by ${message.author.displayName}` })
-                .setTimestamp();
-            await message.reply({ embeds: [embed] });
-
-            // Log successful image generation
-            this.addBotLog(botId, 'AI', `🎨 Image generated for ${message.author.displayName || message.author.username}`, {
-                user: message.author.displayName || message.author.username,
-                channel: (message.channel as TextChannel).name
-            });
-
-            // Track image usage with cost
-            await TokenUsageService.recordImageUsage(
-                botId,
-                providerConfig.id,
-                providerInfo?.name || providerConfig.label || providerConfig.id,
-                model || 'unknown',
-                1, // 1 image generated
-                message.author.id,
-                message.author.displayName || message.author.username
-            );
-        } else {
-            // Check if it's a content policy error and provide better message
-            const errorMsg = result.error || result.content || 'Failed to generate image';
-            let userMessage = `❌ ${errorMsg}`;
-
-            if (errorMsg.includes('safety system') || errorMsg.includes('content_policy')) {
-                userMessage = `⚠️ **Content Policy Violation**\n\nYour prompt was rejected by AI safety filters. This usually happens when:\n• The prompt contains copyrighted characters (e.g., Spider-Man, Mickey Mouse)\n• The prompt describes violence, weapons, or inappropriate content\n• The prompt mentions real public figures\n\n💡 **Tips:** Try describing your image without brand names or copyrighted references.`;
-            }
-
-            await message.reply(userMessage);
-
-            // Log failed image generation
-            this.addBotLog(botId, 'Error', `❌ Image generation failed: ${result.error || 'Unknown error'}`, {
-                user: message.author.displayName || message.author.username,
-                channel: (message.channel as TextChannel).name
-            });
-        }
     }
 }
