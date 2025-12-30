@@ -96,10 +96,12 @@ router.post('/', async (req, res) => {
           for (const node of aiProviderNodes) {
             const data = node.data || {};
             console.log(`[FlowRoutes] AI Provider node data:`, JSON.stringify(data));
-            if (data.provider && data.apiKey && data.isEnabled !== false) {
+
+            // Extract provider even if apiKey is empty (user can fill later)
+            if (data.provider && data.isEnabled !== false) {
               providers.push({
                 id: data.provider,
-                apiKey: data.apiKey,
+                apiKey: data.apiKey || '', // Allow empty apiKey
                 // New format: modeX booleans from Studio toggles
                 modeChat: data.modeChat,
                 modeCode: data.modeCode,
@@ -116,7 +118,7 @@ router.post('/', async (req, res) => {
                 // Fetched/validated models from Studio - use these in /set command
                 fetchedModels: data.fetchedModels || [],
                 // Old format: models object (backward compat)
-                models: {
+                models: data.models || {
                   chat: data.modelChat || '',
                   code: data.modelCode || '',
                   debug: data.modelDebug || '',
