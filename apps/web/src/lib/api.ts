@@ -40,6 +40,48 @@ type UserSearchResult = {
 };
 
 export const api = {
+    // Generic HTTP methods for dynamic routes
+    async get(path: string): Promise<any> {
+        const res = await fetch(`${API_Base}${path.startsWith('/api') ? path : '/api' + path}`, {
+            headers: await this.getAuthHeaders(),
+            credentials: 'include'
+        });
+        if (!res.ok) throw new Error(`GET ${path} failed`);
+        return await res.json();
+    },
+
+    async post(path: string, body?: any): Promise<any> {
+        const res = await fetch(`${API_Base}${path.startsWith('/api') ? path : '/api' + path}`, {
+            method: 'POST',
+            headers: { ...await this.getAuthHeaders(), 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: body ? JSON.stringify(body) : undefined
+        });
+        if (!res.ok) throw new Error(`POST ${path} failed`);
+        return await res.json();
+    },
+
+    async put(path: string, body?: any): Promise<any> {
+        const res = await fetch(`${API_Base}${path.startsWith('/api') ? path : '/api' + path}`, {
+            method: 'PUT',
+            headers: { ...await this.getAuthHeaders(), 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: body ? JSON.stringify(body) : undefined
+        });
+        if (!res.ok) throw new Error(`PUT ${path} failed`);
+        return await res.json();
+    },
+
+    async delete(path: string): Promise<any> {
+        const res = await fetch(`${API_Base}${path.startsWith('/api') ? path : '/api' + path}`, {
+            method: 'DELETE',
+            headers: await this.getAuthHeaders(),
+            credentials: 'include'
+        });
+        if (!res.ok) throw new Error(`DELETE ${path} failed`);
+        return await res.json();
+    },
+
     async getBots() {
         const res = await fetch(`${API_Base}/api/bots`, {
             headers: await this.getAuthHeaders(),
@@ -217,6 +259,40 @@ export const api = {
         return await res.json();
     },
 
+    async createFlow(botId: string, flowData: { name: string; triggerType: string; nodes: string; edges: string }) {
+        const res = await fetch(`${API_Base}/api/flows`, {
+            method: 'POST',
+            headers: { ...await this.getAuthHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ botId, ...flowData }),
+            credentials: 'include'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to create flow');
+        return data;
+    },
+
+    async deleteFlow(botId: string, flowId: string) {
+        const res = await fetch(`${API_Base}/api/flows/${flowId}`, {
+            method: 'DELETE',
+            headers: await this.getAuthHeaders(),
+            credentials: 'include'
+        });
+        if (!res.ok) throw new Error('Failed to delete flow');
+        return await res.json();
+    },
+
+    async updateFlow(botId: string, flowId: string, data: { name?: string }) {
+        const res = await fetch(`${API_Base}/api/flows/${flowId}`, {
+            method: 'PUT',
+            headers: { ...await this.getAuthHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+            credentials: 'include'
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to update flow');
+        return result;
+    },
+
     async getDashboardStats() {
         const bots = await this.getBots();
         return {
@@ -246,9 +322,90 @@ export const api = {
         return data;
     },
 
+    async uploadTemplate(templateData: {
+        name: string;
+        description: string;
+        category: string;
+        icon: string;
+        color: string;
+        nodes: string;
+        edges: string;
+        triggerType: string;
+    }) {
+        const res = await fetch(`${API_Base}/api/templates`, {
+            method: 'POST',
+            headers: { ...await this.getAuthHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify(templateData),
+            credentials: 'include'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to upload template');
+        return data;
+    },
+
     async getAuthHeaders() {
         return {
             'Content-Type': 'application/json'
         };
+    },
+
+    // Token Usage methods
+    async getTokenUsageSummary(botId: string) {
+        const res = await fetch(`${API_Base}/api/bots/${botId}/token-usage/summary`, {
+            headers: await this.getAuthHeaders(),
+            credentials: 'include'
+        });
+        if (!res.ok) throw new Error('Failed to get token usage summary');
+        return await res.json();
+    },
+
+    async getTokenUsageLogs(botId: string, limit: number = 100) {
+        const res = await fetch(`${API_Base}/api/bots/${botId}/token-usage/logs?limit=${limit}`, {
+            headers: await this.getAuthHeaders(),
+            credentials: 'include'
+        });
+        if (!res.ok) throw new Error('Failed to get token usage logs');
+        return await res.json();
+    },
+
+    async getTokenLimits(botId: string) {
+        const res = await fetch(`${API_Base}/api/bots/${botId}/token-limits`, {
+            headers: await this.getAuthHeaders(),
+            credentials: 'include'
+        });
+        if (!res.ok) throw new Error('Failed to get token limits');
+        return await res.json();
+    },
+
+    async updateTokenLimits(botId: string, providerId: string, limits: {
+        dailyLimit?: number;
+        weeklyLimit?: number;
+        monthlyLimit?: number;
+        autoResetDaily?: boolean;
+        autoResetWeekly?: boolean;
+        autoResetMonthly?: boolean;
+        allowAdminBypass?: boolean;
+        notifyOwnerOnLimit?: boolean;
+        isEnabled?: boolean;
+    }) {
+        const res = await fetch(`${API_Base}/api/bots/${botId}/token-limits/${providerId}`, {
+            method: 'PUT',
+            headers: await this.getAuthHeaders(),
+            body: JSON.stringify(limits),
+            credentials: 'include'
+        });
+        if (!res.ok) throw new Error('Failed to update token limits');
+        return await res.json();
+    },
+
+    async resetTokenUsage(botId: string, providerId: string, period: 'daily' | 'weekly' | 'monthly' | 'all' = 'all') {
+        const res = await fetch(`${API_Base}/api/bots/${botId}/token-limits/${providerId}/reset`, {
+            method: 'POST',
+            headers: await this.getAuthHeaders(),
+            body: JSON.stringify({ period }),
+            credentials: 'include'
+        });
+        if (!res.ok) throw new Error('Failed to reset token usage');
+        return await res.json();
     }
 }

@@ -2,6 +2,9 @@
     import { onMount } from 'svelte';
     import { api } from '$lib/api';
     import { goto } from '$app/navigation';
+    import { useSession } from '$lib/auth';
+
+    const session = useSession();
 
     interface Template {
         id: string;
@@ -11,6 +14,8 @@
         icon: string;
         color: string;
         downloads: number;
+        createdBy?: string;
+        creatorName?: string;
     }
 
     interface Bot {
@@ -29,12 +34,22 @@
     let selectedBotId = $state<string>('');
     let importing = $state(false);
 
+    // Upload modal state
+    let showUploadModal = $state(false);
+    let uploadName = $state('');
+    let uploadDescription = $state('');
+    let uploadCategory = $state('utility');
+    let uploadFile = $state<File | null>(null);
+    let uploading = $state(false);
+    let uploadError = $state('');
+
     const categories = [
         { id: 'notification', label: 'Notification', icon: 'notifications', color: '#ef4444' },
         { id: 'music', label: 'Music', icon: 'music_note', color: '#22c55e' },
         { id: 'utility', label: 'Utility', icon: 'build', color: '#3b82f6' },
         { id: 'moderation', label: 'Moderation', icon: 'shield', color: '#f59e0b' },
-        { id: 'fun', label: 'Fun', icon: 'celebration', color: '#ec4899' }
+        { id: 'fun', label: 'Fun', icon: 'celebration', color: '#ec4899' },
+        { id: 'welcome', label: 'Welcome', icon: 'waving_hand', color: '#8b5cf6' }
     ];
 
     onMount(async () => {
@@ -68,6 +83,61 @@
         }
     }
 
+    function handleFileSelect(e: Event) {
+        const input = e.target as HTMLInputElement;
+        if (input.files && input.files[0]) {
+            uploadFile = input.files[0];
+            // Try to parse name from file
+            if (!uploadName && uploadFile.name) {
+                uploadName = uploadFile.name.replace(/_flow\.json$/, '').replace(/_/g, ' ');
+            }
+        }
+    }
+
+    async function uploadTemplate() {
+        if (!uploadFile || !uploadName) return;
+        
+        uploading = true;
+        uploadError = '';
+        
+        try {
+            const fileContent = await uploadFile.text();
+            const flowData = JSON.parse(fileContent);
+            
+            // Validate flow structure
+            if (!flowData.nodes || !flowData.edges) {
+                throw new Error('Invalid flow file: missing nodes or edges');
+            }
+            
+            const category = categories.find(c => c.id === uploadCategory);
+            
+            const templateData = {
+                name: uploadName,
+                description: uploadDescription || `${uploadName} template`,
+                category: uploadCategory,
+                icon: category?.icon || 'code',
+                color: category?.color || '#3b82f6',
+                nodes: JSON.stringify(flowData.nodes),
+                edges: JSON.stringify(flowData.edges),
+                triggerType: flowData.triggerType || 'messageCreate'
+            };
+            
+            const newTemplate = await api.uploadTemplate(templateData);
+            templates = [newTemplate, ...templates];
+            
+            // Reset form
+            showUploadModal = false;
+            uploadName = '';
+            uploadDescription = '';
+            uploadFile = null;
+            uploadCategory = 'utility';
+        } catch (e: any) {
+            uploadError = e.message || 'Failed to upload template';
+        } finally {
+            uploading = false;
+        }
+    }
+
     const filteredTemplates = $derived(
         selectedCategory 
             ? templates.filter(t => t.category === selectedCategory)
@@ -81,6 +151,13 @@
             <h1 class="text-3xl md:text-4xl font-black tracking-tight text-white mb-2">Templates</h1>
             <p class="text-gray-500">Pre-built bot flows ready to import and customize.</p>
         </div>
+        <button 
+            onclick={() => showUploadModal = true}
+            class="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm transition-colors"
+        >
+            <span class="material-symbols-outlined text-[20px]">upload</span>
+            Upload Template
+        </button>
     </div>
 
     <!-- Category Filters -->
@@ -197,6 +274,108 @@
                         {:else}
                             <span class="material-symbols-outlined text-[18px]">download</span>
                             Import
+                        {/if}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+{/if}
+
+<!-- Upload Template Modal -->
+{#if showUploadModal}
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <button type="button" class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick={() => showUploadModal = false} aria-label="Close"></button>
+        <div class="relative w-full max-w-lg bg-dark-surface rounded-xl border border-dark-border shadow-2xl">
+            <div class="p-6">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="size-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[24px] text-emerald-400">upload</span>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-white">Upload Template</h3>
+                        <p class="text-sm text-gray-500">Share your flow with the community</p>
+                    </div>
+                </div>
+                
+                {#if uploadError}
+                    <div class="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                        {uploadError}
+                    </div>
+                {/if}
+                
+                <div class="space-y-4">
+                    <!-- File Input -->
+                    <div>
+                        <label for="flow-file" class="block text-sm font-medium text-gray-400 mb-2">Flow File (JSON)</label>
+                        <input 
+                            id="flow-file"
+                            type="file"
+                            accept=".json"
+                            onchange={handleFileSelect}
+                            class="w-full bg-dark-base border border-dark-border rounded-lg px-4 py-3 text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-primary file:text-white hover:file:bg-primary/90"
+                        />
+                        {#if uploadFile}
+                            <p class="text-xs text-gray-500 mt-1">Selected: {uploadFile.name}</p>
+                        {/if}
+                    </div>
+                    
+                    <!-- Name -->
+                    <div>
+                        <label for="template-name" class="block text-sm font-medium text-gray-400 mb-2">Template Name</label>
+                        <input 
+                            id="template-name"
+                            type="text"
+                            bind:value={uploadName}
+                            placeholder="e.g. Welcome Message Flow"
+                            class="w-full bg-dark-base border border-dark-border rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                        />
+                    </div>
+                    
+                    <!-- Description -->
+                    <div>
+                        <label for="template-desc" class="block text-sm font-medium text-gray-400 mb-2">Description (optional)</label>
+                        <textarea 
+                            id="template-desc"
+                            bind:value={uploadDescription}
+                            placeholder="What does this flow do?"
+                            rows="2"
+                            class="w-full bg-dark-base border border-dark-border rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-none"
+                        ></textarea>
+                    </div>
+                    
+                    <!-- Category -->
+                    <div>
+                        <label for="template-category" class="block text-sm font-medium text-gray-400 mb-2">Category</label>
+                        <select 
+                            id="template-category"
+                            bind:value={uploadCategory}
+                            class="w-full bg-dark-base border border-dark-border rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                        >
+                            {#each categories as cat}
+                                <option value={cat.id}>{cat.label}</option>
+                            {/each}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 mt-6">
+                    <button 
+                        onclick={() => showUploadModal = false}
+                        class="flex-1 py-3 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg font-medium transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onclick={uploadTemplate}
+                        disabled={uploading || !uploadFile || !uploadName}
+                        class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                        {#if uploading}
+                            <div class="size-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        {:else}
+                            <span class="material-symbols-outlined text-[18px]">upload</span>
+                            Upload
                         {/if}
                     </button>
                 </div>

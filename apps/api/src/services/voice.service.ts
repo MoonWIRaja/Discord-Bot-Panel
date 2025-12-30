@@ -18,6 +18,16 @@ import ffmpegPath from 'ffmpeg-static';
 import path from 'path';
 import fs from 'fs';
 
+// Import BotRuntime for logging (lazy import to avoid circular dependency)
+let BotRuntime: any = null;
+const getBotRuntime = async () => {
+    if (!BotRuntime) {
+        const module = await import('./bot.runtime.js');
+        BotRuntime = module.BotRuntime;
+    }
+    return BotRuntime;
+};
+
 const require = createRequire(import.meta.url);
 const YTDlpWrapLib = require('yt-dlp-wrap');
 const YTDlpWrap = YTDlpWrapLib.default || YTDlpWrapLib;
@@ -58,8 +68,34 @@ interface ServerQueue {
 // Store queues per guild
 const queues = new Map<string, ServerQueue>();
 
+// Store inactivity timers per guild (5 minutes = 300000ms)
+const inactivityTimers = new Map<string, NodeJS.Timeout>();
+const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+
 export class VoiceService {
     
+    // Helper to log voice actions to bot logs
+    static async logVoiceAction(client: Client, type: 'System' | 'Message' | 'Error', message: string) {
+        try {
+            const BR = await getBotRuntime();
+            if (BR && BR.activeBots) {
+                // Find botId from client
+                let foundBotId: string | undefined;
+                for (const [id, c] of BR.activeBots.entries()) {
+                    if (c === client) {
+                        foundBotId = id;
+                        break;
+                    }
+                }
+                if (foundBotId) {
+                    BR.addBotLog(foundBotId, type, message);
+                }
+            }
+        } catch (e) {
+            // Ignore logging errors
+        }
+    }
+
     // Check and download yt-dlp if needed
     static async ensureYtDlp() {
         if (!fs.existsSync(YTDLP_DIR)) {
@@ -223,15 +259,39 @@ export class VoiceService {
 
         if (serverQueue.queue.length === 0) {
             serverQueue.playing = false;
+
+            // Start inactivity timer - disconnect after 5 minutes
+            const existingTimer = inactivityTimers.get(guildId);
+            if (existingTimer) clearTimeout(existingTimer);
+
+            const timer = setTimeout(() => {
+                const queue = queues.get(guildId);
+                if (queue && queue.queue.length === 0) {
+                    queue.textChannel.send('⏹️ No activity for 5 minutes. Disconnecting...').catch(() => { });
+                    this.destroyQueue(guildId);
+                }
+                inactivityTimers.delete(guildId);
+            }, INACTIVITY_TIMEOUT);
+            inactivityTimers.set(guildId, timer);
+
+            serverQueue.textChannel.send('📭 Queue is empty. I\'ll leave in 5 minutes if no songs are added.').catch(() => { });
             return;
         }
 
         const song = serverQueue.queue[0];
         
+        // Clear inactivity timer when playing
+        const existingTimer = inactivityTimers.get(guildId);
+        if (existingTimer) {
+            clearTimeout(existingTimer);
+            inactivityTimers.delete(guildId);
+        }
         try {
             console.log(`[Voice] Preparing to play: ${song.title}`);
             const client = serverQueue.textChannel.client as any;
-            if (client.logger) client.logger.log('info', `Preparing to play: ${song.title}`);
+
+            // Log to bot logs
+            this.logVoiceAction(client, 'Message', `🎵 Now playing: ${song.title} [${song.duration}]`);
 
             // 1. Get direct stream URL using yt-dlp
             const output = await ytDlpWrap.execPromise([
@@ -362,6 +422,9 @@ export class VoiceService {
         const serverQueue = queues.get(guildId);
         if (!serverQueue) return;
         
+        // Log to bot logs before destroying
+        this.logVoiceAction(serverQueue.textChannel.client, 'System', `🔇 Disconnected from voice channel`);
+
         serverQueue.connection.destroy();
         queues.delete(guildId);
         console.log(`[Voice] Destroyed queue for guild: ${guildId}`);

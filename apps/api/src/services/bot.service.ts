@@ -1,5 +1,5 @@
 import { db } from "../db/index.js";
-import { bots, botCollaborators, user } from "../db/schema.js";
+import { bots, botCollaborators, user, systemSettings, plans } from "../db/schema.js";
 import { eq, and, or, like } from "drizzle-orm";
 import { v4 as uuidv4 } from 'uuid';
 import { Client, GatewayIntentBits, REST, Routes } from 'discord.js';
@@ -9,6 +9,85 @@ import { Client, GatewayIntentBits, REST, Routes } from 'discord.js';
 // TODO: Implement proper AES encryption
 
 export class BotService {
+  // Get plan limits from system settings or custom plans
+  static async getPlanLimits(planName: string): Promise<{ botLimit: number; flowLimit: number; enabled: boolean; planDisplayName: string }> {
+    // Default values
+    const defaults: Record<string, { botLimit: number; flowLimit: number }> = {
+      free: { botLimit: 5, flowLimit: 10 },
+      unlimited: { botLimit: 0, flowLimit: 0 }, // 0 = unlimited
+      pro: { botLimit: 25, flowLimit: 50 }
+    };
+
+    try {
+      const settings = await db.select().from(systemSettings);
+      const settingsMap: Record<string, string> = {};
+      for (const s of settings) {
+        if (s.key && s.value) settingsMap[s.key] = s.value as string;
+      }
+
+      if (planName === 'free') {
+        const enabled = settingsMap['free_plan_enabled'] !== 'false';
+        const botVal = settingsMap['free_bot_limit'];
+        const flowVal = settingsMap['free_flow_limit'];
+        return {
+          botLimit: botVal !== undefined && botVal !== '' ? parseInt(botVal) : 5,
+          flowLimit: flowVal !== undefined && flowVal !== '' ? parseInt(flowVal) : 10,
+          enabled,
+          planDisplayName: 'Free'
+        };
+      }
+
+      if (planName === 'unlimited') {
+        return {
+          botLimit: parseInt(settingsMap['unlimited_bot_limit'] || '0'),
+          flowLimit: parseInt(settingsMap['unlimited_flow_limit'] || '0'),
+          enabled: true,
+          planDisplayName: 'Unlimited'
+        };
+      }
+
+      if (planName === 'pro') {
+        return {
+          ...defaults.pro,
+          enabled: true,
+          planDisplayName: 'Pro'
+        };
+      }
+
+      // For custom plans - lookup from plans table
+      // Plan name could be the plan ID or a normalized name
+      const customPlans = await db.select().from(plans);
+      const customPlan = customPlans.find(p =>
+        p.id === planName ||
+        p.name.toLowerCase().replace(/\s+/g, '_') === planName ||
+        p.name === planName
+      );
+
+      if (customPlan) {
+        return {
+          botLimit: customPlan.botLimit ?? 0,
+          flowLimit: customPlan.flowLimit ?? 0,
+          enabled: true,
+          planDisplayName: customPlan.name
+        };
+      }
+
+      // Fallback to free plan defaults
+      const def = defaults.free;
+      return { ...def, enabled: true, planDisplayName: planName };
+    } catch (error) {
+      console.error('Failed to get plan limits:', error);
+      const def = defaults[planName] || defaults.free;
+      return { ...def, enabled: true, planDisplayName: planName };
+    }
+  }
+
+  // Count only OWNED bots (not shared ones)
+  static async countOwnedBots(userId: string): Promise<number> {
+    const ownedBots = await db.select().from(bots).where(eq(bots.userId, userId));
+    return ownedBots.length;
+  }
+
   static async validateToken(token: string): Promise<{ id: string; username: string; discriminator: string; avatar: string | null } | null> {
     const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -59,6 +138,25 @@ export class BotService {
   }
 
   static async createBot(userId: string, token: string) {
+    // 0. Check plan limits first
+    const userData = await db.select().from(user).where(eq(user.id, userId));
+    const userPlan = userData[0]?.plan || 'free';
+
+    const planLimits = await this.getPlanLimits(userPlan);
+
+    // Check if plan is enabled (for free plan toggle)
+    if (!planLimits.enabled) {
+      throw new Error("You don't have an active plan. Please subscribe to create bots.");
+    }
+
+    // Check bot limit (0 = unlimited)
+    if (planLimits.botLimit > 0) {
+      const ownedCount = await this.countOwnedBots(userId);
+      if (ownedCount >= planLimits.botLimit) {
+        throw new Error(`Bot limit reached. Your ${userPlan} plan allows ${planLimits.botLimit} bots. Upgrade your plan to create more.`);
+      }
+    }
+
     // 1. Check for duplicate token first
     if (await this.isTokenDuplicate(token)) {
       throw new Error("This bot is already registered in the system");
@@ -99,8 +197,11 @@ export class BotService {
     return { ...newBot, avatar: discordBot.avatar };
   }
 
-  // Get all bots user owns OR is collaborator on
+  // Get all bots user owns OR is collaborator on, with flow counts
   static async getUserBots(userId: string) {
+    // Import flows table
+    const { flows } = await import('../db/schema.js');
+
     // Get bots where user is owner
     const ownedBots = await db.select().from(bots).where(eq(bots.userId, userId));
 
@@ -121,11 +222,29 @@ export class BotService {
         }
       }
 
-      return allBots;
+      // Add flow count for each bot
+      const botsWithFlowCount = await Promise.all(allBots.map(async (bot) => {
+        const botFlows = await db.select().from(flows).where(eq(flows.botId, bot.id));
+        return {
+          ...bot,
+          flowCount: botFlows.length
+        };
+      }));
+
+      return botsWithFlowCount;
     } catch (e) {
-      // If bot_collaborators table doesn't exist yet, just return owned bots
+      // If bot_collaborators table doesn't exist yet, just return owned bots with flow count
       console.warn("bot_collaborators table may not exist yet, returning only owned bots");
-      return ownedBots;
+      const { flows } = await import('../db/schema.js');
+      const botsWithFlowCount = await Promise.all(ownedBots.map(async (bot) => {
+        try {
+          const botFlows = await db.select().from(flows).where(eq(flows.botId, bot.id));
+          return { ...bot, flowCount: botFlows.length };
+        } catch {
+          return { ...bot, flowCount: 0 };
+        }
+      }));
+      return botsWithFlowCount;
     }
   }
 
@@ -230,5 +349,51 @@ export class BotService {
   static async checkBotStatus(token: string): Promise<'online' | 'offline' | 'error'> {
     const isValid = await this.validateToken(token);
     return isValid ? 'online' : 'error';
+  }
+
+  // Refresh bot info from Discord (name, avatar) and update database
+  static async refreshBotInfo(botId: string, userId: string): Promise<{ success: boolean; avatar?: string | null; name?: string }> {
+    // Get bot
+    const botData = await db.select().from(bots).where(eq(bots.id, botId));
+    if (!botData[0]) {
+      throw new Error('Bot not found');
+    }
+
+    // Check access
+    const isOwner = botData[0].userId === userId;
+    const isCollaborator = await db.select()
+      .from(botCollaborators)
+      .where(and(eq(botCollaborators.botId, botId), eq(botCollaborators.userId, userId)));
+
+    if (!isOwner && isCollaborator.length === 0) {
+      throw new Error('No access to this bot');
+    }
+
+    // Decrypt token
+    const token = Buffer.from(botData[0].token, 'base64').toString('utf-8');
+
+    // Validate with Discord to get fresh info
+    const discordBot = await this.validateToken(token);
+    if (!discordBot) {
+      throw new Error('Failed to connect to Discord. Token may be invalid.');
+    }
+
+    // Update database with fresh info
+    await db.update(bots)
+      .set({
+        name: discordBot.username,
+        avatar: discordBot.avatar,
+        clientId: discordBot.id,
+        updatedAt: new Date()
+      })
+      .where(eq(bots.id, botId));
+
+    console.log(`[BotService] Refreshed bot ${botId}: name=${discordBot.username}, avatar=${discordBot.avatar}`);
+
+    return {
+      success: true,
+      avatar: discordBot.avatar,
+      name: discordBot.username
+    };
   }
 }

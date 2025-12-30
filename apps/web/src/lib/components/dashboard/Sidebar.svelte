@@ -7,21 +7,54 @@
     
     const session = useSession();
     let showProfileMenu = $state(false);
-    let botCount = $state(0);
-    const maxBots = 5; // Free plan limit
+    
+    // Dynamic user limits from API
+    let userLimits = $state<any>({
+        plan: 'free',
+        planEnabled: true,
+        botLimit: 5,
+        flowLimit: 10,
+        ownedBotCount: 0,
+        botLimitDisplay: '5',
+        flowLimitDisplay: '10'
+    });
+    
+    // Get user plan from session
+    let userPlan = $derived(($session.data?.user as any)?.plan || 'free');
+    let userRole = $derived(($session.data?.user as any)?.role || 'user');
+    
+    // Max bots from dynamic limits
+    let maxBots = $derived(userLimits.botLimit === 0 ? Infinity : userLimits.botLimit);
+    let botCount = $derived(userLimits.ownedBotCount); // Only owned bots
+    
+    // Plan enabled status
+    let planEnabled = $derived(userLimits.planEnabled);
+    
+    // Plan display name - use from API for custom plans
+    let planDisplayName = $derived(
+        !planEnabled ? 'No Plan' :
+        userLimits.planDisplayName || userPlan
+    );
+    
+    // Plan color
+    let planColor = $derived(
+        !planEnabled ? 'bg-gray-500' :
+        userPlan === 'unlimited' ? 'bg-amber-500' : 
+        userPlan === 'pro' ? 'bg-emerald-500' : 'bg-indigo-500'
+    );
     
     // Get current path for active state
     let currentPath = $derived($page.url.pathname);
     
     // Check if user is admin (you can adjust this logic based on your user model)
-    let isAdmin = $derived($session.data?.user?.email === 'admin@example.com' || $session.data?.user?.role === 'admin');
+    let isAdmin = $derived($session.data?.user?.email === 'admin@example.com' || userRole === 'admin');
 
     onMount(async () => {
         try {
-            const bots = await api.getBots();
-            botCount = bots.length;
+            // Fetch dynamic limits which includes owned bot count
+            userLimits = await api.get('/bots/user/limits');
         } catch (e) {
-            console.error("Failed to fetch bot count:", e);
+            console.error("Failed to fetch user limits:", e);
         }
     });
 
@@ -61,9 +94,9 @@
             Templates
         </a>
         {#if isAdmin}
-            <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {isActive('/settings') ? 'bg-primary text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'text-gray-400 hover:bg-white/5 hover:text-white'}" href="/settings">
-                <span class="material-symbols-outlined text-[20px]">settings</span>
-                Settings
+            <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {isActive('/admin') ? 'bg-amber-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.3)]' : 'text-amber-400 hover:bg-amber-500/10 hover:text-amber-300'}" href="/admin">
+                <span class="material-symbols-outlined text-[20px]">admin_panel_settings</span>
+                Admin Panel
             </a>
         {/if}
     </div>
@@ -86,13 +119,21 @@
                 </div>
                 <!-- Plan Mini Bar -->
                 <div class="flex flex-col gap-1.5 mt-1">
-                    <div class="flex justify-between items-end text-[10px] uppercase font-bold tracking-wider">
-                        <span class="text-indigo-400">Free Plan</span>
-                        <span class="text-gray-500">{botCount}/{maxBots} Bots</span>
-                    </div>
-                    <div class="h-1 w-full bg-dark-border rounded-full overflow-hidden">
-                        <div class="h-full bg-indigo-500 rounded-full" style="width: {Math.min(botCount / maxBots * 100, 100)}%"></div>
-                    </div>
+                    {#if planEnabled}
+                        <div class="flex justify-between items-end text-[10px] uppercase font-bold tracking-wider">
+                            <span class="{planColor.replace('bg-', 'text-')}">{planDisplayName}</span>
+                            <span class="text-gray-500">{botCount}/{maxBots === Infinity ? '∞' : maxBots} Bots</span>
+                        </div>
+                        <div class="h-1 w-full bg-dark-border rounded-full overflow-hidden">
+                            <div class="h-full {planColor} rounded-full" style="width: {maxBots === Infinity ? 0 : Math.min(botCount / maxBots * 100, 100)}%"></div>
+                        </div>
+                    {:else}
+                        <div class="flex justify-between items-end text-[10px] uppercase font-bold tracking-wider">
+                            <span class="text-gray-500">No Plan</span>
+                            <a href="/settings/billing" class="text-primary hover:underline">Upgrade</a>
+                        </div>
+                        <div class="h-1 w-full bg-red-500/30 rounded-full"></div>
+                    {/if}
                 </div>
             </button>
         {:else}
@@ -125,7 +166,7 @@
                  {/if}
                  <div>
                      <h3 class="font-bold text-white text-lg">{$session.data.user.name}</h3>
-                     <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500 text-white uppercase tracking-wider">Free Plan</span>
+                     <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold {planColor} text-white uppercase tracking-wider">{planDisplayName}</span>
                  </div>
              </div>
         </div>
@@ -139,7 +180,7 @@
                  <div>
                      <div class="flex justify-between text-xs mb-1">
                          <span class="text-gray-400">Bots</span>
-                         <span class="text-white">{botCount} / {maxBots}</span>
+                         <span class="text-white">{botCount} / {maxBots === Infinity ? '∞' : maxBots}</span>
                      </div>
                      <div class="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
                          <div class="h-full bg-indigo-500 rounded-full" style="width: {Math.min(botCount / maxBots * 100, 100)}%"></div>

@@ -29,7 +29,7 @@
     }
 
     async function saveChanges() {
-        if (!displayName.trim()) return;
+        if (!displayName.trim() || !id) return;
 
         try {
             saving = true;

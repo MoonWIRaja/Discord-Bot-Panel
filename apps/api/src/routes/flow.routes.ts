@@ -53,6 +53,7 @@ router.post('/', async (req, res) => {
     
     const user = (req as any).user;
     const { botId, name, triggerType, nodes, edges, published } = result.data;
+    const flowId = req.body.flowId; // Optional - if provided, update that flow
 
     // Verify access (owner OR collaborator)
     const bot = await BotService.getBot(botId, user.id);
@@ -62,44 +63,129 @@ router.post('/', async (req, res) => {
         return;
     }
 
-    // Check if flow already exists for this bot
-    const existingFlow = await db.query.flows.findFirst({
-      where: eq(flows.botId, botId)
-    });
-
     // Normalize nodes/edges to strings for storage
     const nodesStr = typeof nodes === 'string' ? nodes : JSON.stringify(nodes);
     const edgesStr = typeof edges === 'string' ? edges : JSON.stringify(edges);
 
-    if (existingFlow) {
-      // Update existing flow
-      await db.update(flows)
-        .set({
-          name,
-          triggerType,
-          nodes: nodesStr,
-          edges: edgesStr,
-          published: published ?? true,
-          updatedAt: new Date()
-        })
-        .where(eq(flows.id, existingFlow.id));
+    // Extract ALL AI Provider nodes and save to bot config as providers array
+    try {
+      const nodesArray = typeof nodes === 'string' ? JSON.parse(nodes) : nodes;
+      const aiProviderNodes = nodesArray.filter((n: any) => n.type === 'aiProvider');
+      console.log(`[FlowRoutes] Found ${aiProviderNodes.length} aiProvider nodes`);
 
-      res.json({ id: existingFlow.id, name, updated: true });
-    } else {
-      // Create new flow
-      const id = uuidv4();
-      await db.insert(flows).values({
-        id,
-        botId,
-        name,
-        triggerType,
-        nodes: nodesStr,
-        edges: edgesStr,
-        published: published ?? true
-      });
+      if (aiProviderNodes.length > 0) {
+        // Get current bot config
+        const botData = await db.select().from(bots).where(eq(bots.id, botId));
+        if (botData[0]) {
+          const rawConfig = botData[0].config;
+          const config = typeof rawConfig === 'string' ? JSON.parse(rawConfig || '{}') : (rawConfig || {});
 
-      res.status(201).json({ id, name, created: true });
+          // Build providers array from all AI Provider nodes
+          const providers: any[] = [];
+          let defaultProvider = '';
+
+          for (const node of aiProviderNodes) {
+            const data = node.data || {};
+            console.log(`[FlowRoutes] AI Provider node data:`, JSON.stringify(data));
+            if (data.provider && data.apiKey && data.isEnabled !== false) {
+              providers.push({
+                id: data.provider,
+                apiKey: data.apiKey,
+                // New format: modeX booleans from Studio toggles
+                modeChat: data.modeChat,
+                modeCode: data.modeCode,
+                modeDebug: data.modeDebug,
+                modeImage: data.modeImage,
+                modeVideo: data.modeVideo,
+                modeAudio: data.modeAudio,
+                modeMusic: data.modeMusic,
+                modeVision: data.modeVision,
+                modeTranslate: data.modeTranslate,
+                modeSummarize: data.modeSummarize,
+                modeResearch: data.modeResearch,
+                modeCreative: data.modeCreative,
+                // Fetched/validated models from Studio - use these in /set command
+                fetchedModels: data.fetchedModels || [],
+                // Old format: models object (backward compat)
+                models: {
+                  chat: data.modelChat || '',
+                  code: data.modelCode || '',
+                  debug: data.modelDebug || '',
+                  image: data.modelImage || '',
+                  video: data.modelVideo || '',
+                  audio: data.modelAudio || '',
+                  music: data.modelMusic || '',
+                  vision: data.modelVision || '',
+                  translate: data.modelTranslate || '',
+                  summarize: data.modelSummarize || '',
+                  research: data.modelResearch || '',
+                  creative: data.modelCreative || ''
+                },
+                // Azure/Ollama specific
+                azureEndpoint: data.azureEndpoint || '',
+                azureDeployment: data.azureDeployment || '',
+                ollamaHost: data.ollamaHost || ''
+              });
+
+              // First enabled provider is default
+              if (!defaultProvider) {
+                defaultProvider = data.provider;
+              }
+            }
+          }
+
+          // Update AI config with providers array
+          config.ai = {
+            providers: providers,
+            defaultProvider: defaultProvider || 'gemini',
+            defaultMode: config.ai?.defaultMode || 'auto'
+          };
+
+          // Save updated config
+          await db.update(bots)
+            .set({ config: JSON.stringify(config), updatedAt: new Date() })
+            .where(eq(bots.id, botId));
+
+          console.log(`[FlowRoutes] AI config saved for bot ${botId}: ${providers.length} providers configured (${providers.map(p => p.id).join(', ')})`);
+        }
+      }
+    } catch (e) {
+      console.error('[FlowRoutes] Error extracting AI Provider config:', e);
     }
+
+    // If flowId provided, update that specific flow
+    if (flowId) {
+      const existingFlow = await db.select().from(flows).where(eq(flows.id, flowId));
+      if (existingFlow[0]) {
+        await db.update(flows)
+          .set({
+            name,
+            triggerType,
+            nodes: nodesStr,
+            edges: edgesStr,
+            published: published ?? true,
+            updatedAt: new Date()
+          })
+          .where(eq(flows.id, flowId));
+
+        res.json({ id: flowId, name, updated: true });
+        return;
+      }
+    }
+
+    // Create new flow
+    const id = uuidv4();
+    await db.insert(flows).values({
+      id,
+      botId,
+      name,
+      triggerType,
+      nodes: nodesStr,
+      edges: edgesStr,
+      published: published ?? true
+    });
+
+    res.status(201).json({ id, name, created: true });
   } catch (error) {
     console.error("Error saving flow:", error);
     res.status(500).json({ error: 'Failed to save flow' });
@@ -127,6 +213,72 @@ router.delete('/bot/:botId', async (req, res) => {
   } catch (error) {
     console.error("Error deleting flows:", error);
     res.status(500).json({ error: 'Failed to delete flows' });
+  }
+});
+
+// Delete a single flow by ID
+router.delete('/:flowId', async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const { flowId } = req.params;
+
+    // Get the flow first to check access
+    const flow = await db.select().from(flows).where(eq(flows.id, flowId));
+    if (!flow[0]) {
+      res.status(404).json({ error: 'Flow not found' });
+      return;
+    }
+
+    // Verify access to the bot
+    const bot = await BotService.getBot(flow[0].botId, user.id);
+    if (!bot) {
+      res.status(403).json({ error: 'No access to this flow' });
+      return;
+    }
+
+    // Delete the flow
+    await db.delete(flows).where(eq(flows.id, flowId));
+
+    res.json({ success: true, message: 'Flow deleted' });
+  } catch (error) {
+    console.error("Error deleting flow:", error);
+    res.status(500).json({ error: 'Failed to delete flow' });
+  }
+});
+
+// Update a flow (rename)
+router.put('/:flowId', async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const { flowId } = req.params;
+    const { name } = req.body;
+
+    if (!name || !name.trim()) {
+      res.status(400).json({ error: 'Name is required' });
+      return;
+    }
+
+    // Get the flow first to check access
+    const flow = await db.select().from(flows).where(eq(flows.id, flowId));
+    if (!flow[0]) {
+      res.status(404).json({ error: 'Flow not found' });
+      return;
+    }
+
+    // Verify access to the bot
+    const bot = await BotService.getBot(flow[0].botId, user.id);
+    if (!bot) {
+      res.status(403).json({ error: 'No access to this flow' });
+      return;
+    }
+
+    // Update the flow name
+    await db.update(flows).set({ name: name.trim(), updatedAt: new Date() }).where(eq(flows.id, flowId));
+
+    res.json({ success: true, message: 'Flow renamed', name: name.trim() });
+  } catch (error) {
+    console.error("Error updating flow:", error);
+    res.status(500).json({ error: 'Failed to update flow' });
   }
 });
 

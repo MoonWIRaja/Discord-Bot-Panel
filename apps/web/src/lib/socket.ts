@@ -1,4 +1,4 @@
-import { io, Socket } from 'socket.io-client';
+import { io, type Socket } from 'socket.io-client';
 import { browser } from '$app/environment';
 
 const isLocal = browser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');

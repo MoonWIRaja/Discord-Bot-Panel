@@ -29,6 +29,48 @@
       "when": 1766162046505,
       "tag": "0003_moaning_grim_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1766634064828,
+      "tag": "0004_same_starfox",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1766636714631,
+      "tag": "0005_rich_gunslinger",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1766653964618,
+      "tag": "0006_smart_the_spike",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1766685364860,
+      "tag": "0007_loving_ikaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1766933336389,
+      "tag": "0008_ordinary_lady_vermin",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1767043047364,
+      "tag": "0009_previous_rick_jones",
+      "breakpoints": true
     }
   ]
 }

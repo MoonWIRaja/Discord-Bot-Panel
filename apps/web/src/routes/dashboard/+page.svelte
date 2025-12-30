@@ -20,6 +20,18 @@
     let showManageModal = $state(false);
     let selectedBot = $state<any>(null);
 
+    // Generate proper Discord CDN avatar URL
+    function getAvatarUrl(bot: any): string | null {
+        if (!bot?.avatar) return null;
+        // If already a full URL, return as-is
+        if (bot.avatar.startsWith('http')) return bot.avatar;
+        // Generate from hash + clientId
+        if (bot.clientId) {
+            return `https://cdn.discordapp.com/avatars/${bot.clientId}/${bot.avatar}.png`;
+        }
+        return null;
+    }
+
     function openManageModal(bot: any) {
         selectedBot = bot;
         showManageModal = true;
@@ -170,13 +182,19 @@
     {:else}
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {#each bots as bot}
-                <div class="group bg-dark-card rounded-xl border border-dark-border p-4 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 relative">
-                    <div class="flex items-start justify-between mb-4">
+                <div 
+                    role="button"
+                    tabindex="0"
+                    onclick={(e) => { if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.card-content')) window.location.href = `/bots/${bot.id}/panel`; }}
+                    onkeydown={(e) => { if (e.key === 'Enter') window.location.href = `/bots/${bot.id}/panel`; }}
+                    class="group bg-dark-card rounded-xl border border-dark-border p-4 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 relative cursor-pointer"
+                >
+                    <div class="card-content flex items-start justify-between mb-4">
                         <div class="flex gap-4">
-                            {#if bot.avatar && bot.clientId}
-                                <div class="size-12 rounded-lg bg-cover bg-center shadow-inner ring-1 ring-white/10" style="background-image: url('https://cdn.discordapp.com/avatars/{bot.clientId}/{bot.avatar}.png');"></div>
+                            {#if getAvatarUrl(bot)}
+                                <div class="size-12 rounded-lg bg-cover bg-center shadow-inner ring-1 ring-white/10 shrink-0" style="background-image: url('{getAvatarUrl(bot)}');"></div>
                             {:else}
-                                 <div class="size-12 rounded-lg bg-gray-700 flex items-center justify-center shadow-inner ring-1 ring-white/10">
+                                 <div class="size-12 rounded-lg bg-gray-700 flex items-center justify-center shadow-inner ring-1 ring-white/10 shrink-0">
                                      <span class="text-xl font-bold text-gray-400">{bot.name.charAt(0)}</span>
                                  </div>
                             {/if}
@@ -188,21 +206,33 @@
                                 </div>
                             </div>
                         </div>
-                        <button onclick={() => confirmDelete(bot)} class="text-gray-500 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-500/10" title="Delete Bot">
-                            <span class="material-symbols-outlined">delete</span>
-                        </button>
+                        {#if $session.data?.user?.id === bot.userId}
+                            <button onclick={(e) => { e.stopPropagation(); confirmDelete(bot); }} class="text-gray-500 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-500/10 shrink-0" title="Delete Bot">
+                                <span class="material-symbols-outlined">delete</span>
+                            </button>
+                        {/if}
                     </div>
-                    <!-- Stats (Mocked or from DB if available) -->
+                    <!-- Stats from DB -->
                     <div class="flex items-center gap-4 mb-5 text-sm text-gray-400">
                         <div class="flex items-center gap-1">
                             <span class="material-symbols-outlined text-[18px]">account_tree</span>
-                            <span>0 Flows</span>
+                            <span>{bot.flowCount ?? 0} Flows</span>
                         </div>
                     </div>
-                    <button onclick={() => openManageModal(bot)} class="w-full bg-dark-border hover:bg-primary text-gray-300 hover:text-white font-bold py-2 px-4 rounded-lg text-sm transition-all flex items-center justify-center gap-2">
-                        <span>Manage Bot</span>
-                        <span class="material-symbols-outlined text-[18px]">settings</span>
-                    </button>
+                    <div class="flex gap-2">
+                        <button 
+                            onclick={(e) => { e.stopPropagation(); openManageModal(bot); }}
+                            class="flex-1 py-2 px-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-[16px]">settings</span>
+                            Manage
+                        </button>
+                        <a 
+                            href="/bots/{bot.id}/studio"
+                            class="flex-1 py-2 px-3 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-[16px]">code</span>
+                            Studio
+                        </a>
+                    </div>
                 </div>
             {/each}
 

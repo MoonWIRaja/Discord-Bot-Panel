@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "../db/index.js";
 import { user, session, account, verification } from "../db/schema.js";
+import { count, eq } from "drizzle-orm";
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -53,6 +54,50 @@ export const auth = betterAuth({
       secure: false, // Allow non-HTTPS for state cookie
       httpOnly: true,
       path: "/"
+    }
+  },
+  user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        defaultValue: "user"
+      },
+      plan: {
+        type: "string",
+        defaultValue: "free"
+      }
+    }
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (userData: any) => {
+          // Check if this is the first user in the database
+          const result = await db.select({ count: count() }).from(user);
+          const userCount = result[0]?.count || 0;
+
+          if (userCount === 0) {
+            // First user becomes admin with unlimited plan
+            console.log('[Auth] First user detected! Setting as admin with unlimited plan.');
+            return {
+              data: {
+                ...userData,
+                role: "admin",
+                plan: "unlimited"
+              }
+            };
+          }
+
+          // Normal user with default values
+          return {
+            data: {
+              ...userData,
+              role: "user",
+              plan: "free"
+            }
+          };
+        }
+      }
     }
   }
 });

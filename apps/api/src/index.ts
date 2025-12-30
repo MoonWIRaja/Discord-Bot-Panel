@@ -10,6 +10,8 @@ import { auth } from "./lib/auth.js";
 import { botRoutes } from "./routes/bot.routes.js";
 import { flowRoutes } from "./routes/flow.routes.js";
 import { templateRoutes } from "./routes/template.routes.js";
+import adminRoutes from "./routes/admin.js";
+import paymentRoutes from "./routes/payments.js";
 import { initializeSocketServer } from "./services/collaboration.service.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -67,14 +69,28 @@ app.all('/api/auth', (req, res) => {
 app.use("/api/bots", express.json(), botRoutes);
 app.use("/api/flows", express.json(), flowRoutes);
 app.use("/api/templates", express.json(), templateRoutes);
+app.use("/api/admin", express.json(), adminRoutes);
+app.use("/api/payments", express.json(), paymentRoutes);
 
 // Initialize Socket.io for real-time collaboration
 export const io = initializeSocketServer(httpServer);
 import { BotRuntime } from './services/bot.runtime.js';
+import { runMigrations } from './db/index.js';
 BotRuntime.setIO(io);
 
-httpServer.listen(PORT, () => {
-  console.log(`[API] Server is running on port ${PORT}`);
-  console.log(`[API] Auth routes: /api/auth/*`);
-  console.log(`[API] Socket.io enabled for real-time collaboration`);
+// Run migrations and start server
+runMigrations().then(async () => {
+  // Reset all bot statuses to offline on startup (in case server crashed/restarted)
+  try {
+    await BotRuntime.resetAllBotStatuses();
+    console.log('[API] All bot statuses reset to offline on startup');
+  } catch (e) {
+    console.error('[API] Failed to reset bot statuses:', e);
+  }
+
+  httpServer.listen(PORT, () => {
+    console.log(`[API] Server is running on port ${PORT}`);
+    console.log(`[API] Auth routes: /api/auth/*`);
+    console.log(`[API] Socket.io enabled for real-time collaboration`);
+  });
 });

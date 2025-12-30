@@ -1,6 +1,6 @@
 # Discord Bot Panel
 
-> 🤖 **Low-Code Discord Bot Builder** - Visual Logic Editor
+> 🤖 **Low-Code Discord Bot Builder** - Visual Logic Editor + AI-Powered Chatbot
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
@@ -19,6 +19,55 @@
 
 ---
 
+## ✨ Features
+
+### 🎛️ Web Dashboard
+- **Discord OAuth Login** - Sign in with your Discord account
+- **Bot Management** - Add, start, stop, restart bots from browser
+- **Visual Flow Editor** - Drag-and-drop logic builder (Studio)
+- **Real-time Logs** - Monitor bot activity live
+- **Token Usage Tracking** - Track AI usage with daily/weekly/monthly limits
+- **Training Mode** - Teach your AI bot from conversations
+- **Clear AI History** - Bulk delete messages in AI channels
+
+### 🤖 AI Integration (23 Free Tools!)
+Your bot can use **23 built-in tools** - all FREE, no API keys required:
+
+| Category | Tool | Description |
+|----------|------|-------------|
+| ⏰ **Time** | `get_current_time` | Get current time in any timezone |
+| 🌤️ **Weather** | `get_weather` | Live weather for any city |
+| 🕌 **Prayer** | `get_prayer_times` | Accurate prayer times (JAKIM) |
+| 🔍 **Search** | `search_web` | DuckDuckGo web search |
+| 📖 **Wikipedia** | `search_wikipedia` | Wikipedia summaries |
+| 🎬 **YouTube** | `search_youtube` | Search YouTube videos |
+| 💱 **Currency** | `convert_currency` | Live exchange rates |
+| 📈 **Crypto** | `get_crypto_price` | Bitcoin, Ethereum prices |
+| 🗣️ **Slang** | `define_slang` | Urban Dictionary definitions |
+| 😂 **Memes** | `get_random_meme` | Random Reddit memes |
+| 🔢 **Numbers** | `get_number_fact` | Fun facts about numbers |
+| 🌐 **Webpage** | `read_webpage` | Scrape any website content |
+| 🎭 **Jokes** | `get_joke` | Random jokes (programming, etc) |
+| 💬 **Translate** | `translate_text` | Translate any language |
+| 📖 **Quotes** | `get_quote` | Motivational quotes |
+| 🔢 **Calculator** | `calculate` | Math expressions (sqrt, sin, etc) |
+| 🔗 **URL** | `shorten_url` | Shorten long URLs |
+| 🌍 **Countries** | `get_country_info` | Country info (capital, population) |
+| 📚 **Dictionary** | `get_dictionary` | English word definitions |
+| 🎬 **Anime** | `get_anime_info` | MyAnimeList info |
+| ⭐ **Horoscope** | `get_horoscope` | Zodiac sign readings |
+| 💻 **GitHub** | `get_github_repo` | GitHub repository info |
+| 🔍 **Language** | `detect_language` | Detect text language |
+
+### 🎨 Visual Flow Editor (Studio)
+- **Drag-and-Drop Nodes** - Build logic visually
+- **Trigger Types** - Commands, messages, reactions, joins
+- **Action Nodes** - Reply, DM, embed, role, API calls
+- **AI Nodes** - Chat, image generation, text-to-speech
+- **Condition Nodes** - If/else logic, filters
+
+---
+
 ## 📋 Table of Contents
 
 1. [Prerequisites](#-prerequisites)
@@ -27,70 +76,50 @@
 4. [Database Setup](#-database-setup)
 5. [Discord OAuth Setup](#-discord-oauth-setup)
 6. [Running the Application](#-running-the-application)
-7. [Project Structure](#-project-structure)
-8. [API Endpoints](#-api-endpoints)
-9. [Troubleshooting](#-troubleshooting)
+7. [AI Provider Setup](#-ai-provider-setup)
+8. [Project Structure](#-project-structure)
+9. [API Endpoints](#-api-endpoints)
+10. [Troubleshooting](#-troubleshooting)
 
 ---
 
 ## 📦 Prerequisites
-
-Before you begin, ensure you have the following installed:
 
 | Software | Version | Download |
 |----------|---------|----------|
 | **Node.js** | v18.0.0+ | [nodejs.org](https://nodejs.org/) |
 | **Git** | Latest | [git-scm.com](https://git-scm.com/) |
 
-> 💡 **No external database required!** This project uses **SQLite** which is file-based and works out of the box.
+> 💡 **No external database required!** Uses **SQLite** (file-based).
 
 ---
 
 ## 🚀 Installation
 
-### Step 1: Clone or Navigate to Project
-
 ```bash
-# If cloning from repository
+# Clone repository
 git clone https://github.com/MoonWIRaja/discord-bot-panel.git
 cd discord-bot-panel
 
-# Or if you already have the project
-cd Discord-Bot-Panel
-```
-
-### Step 2: Install Dependencies
-
-```bash
-# Install all dependencies (root + workspaces)
+# Install all dependencies
 npm install
 ```
-
-This will install dependencies for:
-- Root workspace (concurrently, dotenv)
-- API workspace (express, drizzle-orm, better-auth, etc.)
-- Web workspace (svelte, vite, tailwindcss, etc.)
 
 ---
 
 ## ⚙️ Environment Setup
 
-### Step 1: Create Environment File
+### Step 1: Create .env file
 
 ```bash
-# Windows (CMD)
+# Windows
 copy .env.example .env
 
-# Windows (PowerShell)
-Copy-Item .env.example .env
-
-# macOS / Linux
+# macOS/Linux
 cp .env.example .env
 ```
 
-### Step 2: Configure Environment Variables
-
-Open `.env` and fill in your details:
+### Step 2: Configure Variables
 
 ```env
 # ==============================================
@@ -99,26 +128,31 @@ Open `.env` and fill in your details:
 API_PORT=4000
 WEB_PORT=5173
 
-# Public URLs (for CORS and redirects)
+# Public URLs
 PUBLIC_API_URL=http://localhost:4000
 PUBLIC_WEB_URL=http://localhost:5173
 
 # ==============================================
-# AUTHENTICATION (Better-Auth)
+# AUTHENTICATION
 # ==============================================
-# Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-BETTER_AUTH_SECRET=your_32_char_secret_key_here
+BETTER_AUTH_SECRET=your_32_char_secret_key
 BETTER_AUTH_URL=http://localhost:4000
 
-# Discord OAuth Credentials
+# Discord OAuth
 DISCORD_CLIENT_ID=your_discord_client_id
 DISCORD_CLIENT_SECRET=your_discord_client_secret
 
 # ==============================================
-# BOT SYSTEM (Optional)
+# BOT SYSTEM
 # ==============================================
-# Encryption key for bot tokens at rest
 BOT_TOKEN_ENCRYPTION_KEY=your_32_byte_hex_key
+
+# ==============================================
+# SERVER LOCATION (for time/weather defaults)
+# ==============================================
+SERVER_TIMEZONE=Asia/Kuala_Lumpur
+SERVER_CITY=Kuala Lumpur
+SERVER_COUNTRY=Malaysia
 ```
 
 ### Step 3: Generate Secure Keys
@@ -135,107 +169,68 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ## 🗄️ Database Setup
 
-This project uses **SQLite** - a file-based database that requires no external server!
-
-### Initialize Database
-
 ```bash
-# Push schema to create database tables
+# Initialize database
 npm run db:push -w apps/api
 ```
 
-That's it! The database file `data.db` will be created in `apps/api/` directory.
+Database file: `apps/api/data.db`
 
-### Database Commands
+### Commands
 
 ```bash
-# Push schema changes to database
-npm run db:push -w apps/api
-
-# Generate migrations
-npm run db:generate -w apps/api
-
-# Open Drizzle Studio (visual database viewer)
-npm run db:studio -w apps/api
+npm run db:push -w apps/api      # Apply schema
+npm run db:generate -w apps/api  # Generate migrations
+npm run db:studio -w apps/api    # Visual database viewer
 ```
-
-### Database File Location
-
-The SQLite database is stored at: `apps/api/data.db`
-
-> 💡 **Backup**: To backup your database, simply copy the `data.db` file!
 
 ---
 
 ## 🔐 Discord OAuth Setup
 
-### Step 1: Create Discord Application
-
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Click **"New Application"**
-3. Enter a name (e.g., "Bot Panel Dev")
-4. Click **"Create"**
-
-### Step 2: Configure OAuth2
-
-1. Go to **OAuth2** → **General**
-2. Add a **Redirect URL**:
+2. Create **New Application**
+3. Go to **OAuth2** → Add redirect URL:
    ```
    http://localhost:4000/api/auth/callback/discord
    ```
-3. Copy the **Client ID**
-4. Click **"Reset Secret"** and copy the **Client Secret**
-
-### Step 3: Update Environment Variables
-
-```env
-# In your .env file
-DISCORD_CLIENT_ID=123456789012345678
-DISCORD_CLIENT_SECRET=abcdefghijklmnopqrstuvwxyz123456
-```
-
-### Step 4: (Optional) Add Bot Token for Testing
-
-If you want to test bot functionality:
-1. Go to **Bot** section in Discord Developer Portal
-2. Click **"Add Bot"**
-3. Under **Token**, click **"Reset Token"** and copy it
-4. You can add this token later in the dashboard
+4. Copy **Client ID** and **Client Secret** to `.env`
 
 ---
 
 ## 🖥️ Running the Application
 
-### Development Mode (Recommended)
+### Development
 
 ```bash
-# Start both API and Web in development mode
 npm run dev
 ```
 
-This will start:
-- **API Server**: http://localhost:4000
-- **Web Dashboard**: http://localhost:5173
+- **API**: http://localhost:4000
+- **Web**: http://localhost:5173
 
-### Individual Services
-
-```bash
-# Start only API
-npm run dev -w apps/api
-
-# Start only Web
-npm run dev -w apps/web
-```
-
-### Production Mode
+### Production
 
 ```bash
-# Build all apps
 npm run build
-
-# Start in production mode
 npm run start
 ```
+
+---
+
+## 🤖 AI Provider Setup
+
+Go to **Dashboard** → **Bot** → **Studio** → **Add AI Node**
+
+Supported providers:
+- **OpenAI** (GPT-4, GPT-3.5)
+- **Google Gemini** (gemini-pro, gemini-1.5-flash)
+- **Anthropic Claude**
+- **OpenRouter** (access to 100+ models)
+- **Groq** (fast inference)
+- **Together.AI**
+
+All 23 tools work automatically with any provider!
 
 ---
 
@@ -243,41 +238,24 @@ npm run start
 
 ```
 discord-bot-panel/
-├── .env                        # Root environment file
-├── .env.example                # Example environment template
-├── package.json                # Root workspace config
-├── README.md                   # This file
-│
+├── .env                  # Environment variables
+├── package.json          # Workspace config
 ├── apps/
-│   ├── api/                    # Backend - Express + TypeScript
+│   ├── api/              # Backend (Express + TypeScript)
 │   │   ├── src/
-│   │   │   ├── index.ts        # Entry point
-│   │   │   ├── db/
-│   │   │   │   ├── schema.ts   # Drizzle schema (SQLite)
-│   │   │   │   └── index.ts    # DB connection
-│   │   │   ├── lib/
-│   │   │   │   └── auth.ts     # Better-Auth config
-│   │   │   ├── middleware/
-│   │   │   │   └── auth.ts     # Auth middleware
-│   │   │   ├── routes/
-│   │   │   │   ├── bot.routes.ts
-│   │   │   │   └── flow.routes.ts
-│   │   │   └── services/
-│   │   │       └── bot.service.ts
-│   │   ├── data.db             # SQLite database file
-│   │   ├── drizzle.config.mjs  # Drizzle config
-│   │   ├── tsconfig.json
-│   │   └── package.json
+│   │   │   ├── db/       # Database schema
+│   │   │   ├── routes/   # API routes
+│   │   │   ├── services/ # Business logic
+│   │   │   │   ├── ai.service.ts      # AI providers
+│   │   │   │   ├── bot.runtime.ts     # Discord bot engine
+│   │   │   │   └── tools/             # 23 AI tools
+│   │   │   └── lib/      # Auth config
+│   │   └── data.db       # SQLite database
 │   │
-│   └── web/                    # Frontend - SvelteKit
-│       ├── src/
-│       │   ├── routes/         # SvelteKit pages
-│       │   ├── lib/            # Components & utils
-│       │   └── app.css         # Styles
-│       ├── vite.config.ts
-│       └── package.json
-│
-└── packages/                   # (Future) Shared packages
+│   └── web/              # Frontend (SvelteKit)
+│       └── src/
+│           ├── routes/   # Pages
+│           └── lib/      # Components
 ```
 
 ---
@@ -285,46 +263,44 @@ discord-bot-panel/
 ## 🔌 API Endpoints
 
 ### Authentication
-
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `ALL` | `/api/auth/*` | Better-Auth handler (login, register, etc.) |
+| `ALL` | `/api/auth/*` | Discord OAuth |
 
 ### Bots
-
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/bots` | List all user's bots |
-| `POST` | `/api/bots` | Add a new bot |
+| `GET` | `/api/bots` | List user's bots |
+| `POST` | `/api/bots` | Add bot |
 | `GET` | `/api/bots/:id` | Get bot details |
-| `DELETE` | `/api/bots/:id` | Delete a bot |
+| `POST` | `/api/bots/:id/start` | Start bot |
+| `POST` | `/api/bots/:id/stop` | Stop bot |
+| `DELETE` | `/api/bots/:id` | Delete bot |
+| `DELETE` | `/api/bots/:id/ai-history` | Clear AI channel messages |
 
 ### Flows
-
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/flows/:botId` | Get flows for a bot |
-| `POST` | `/api/flows` | Save/Update a flow |
+| `GET` | `/api/flows/:botId` | Get flows |
+| `POST` | `/api/flows` | Save flow |
 
-### Health
-
+### Training
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/health` | Check API status |
+| `GET` | `/api/bots/:id/training` | Training status |
+| `POST` | `/api/bots/:id/training/start` | Start training |
+| `POST` | `/api/bots/:id/training/stop` | Stop training |
+| `DELETE` | `/api/bots/:id/training` | Delete training data |
 
 ---
 
 ## 🆘 Troubleshooting
 
-### Common Issues
-
-#### Port Already in Use
+### Port Already in Use
 
 ```bash
-# Windows - Find process using port 4000
+# Windows
 netstat -ano | findstr :4000
-
-# Kill the process
 taskkill /PID <PID> /F
 
 # macOS/Linux
@@ -332,31 +308,21 @@ lsof -i :4000
 kill -9 <PID>
 ```
 
-#### PowerShell Script Execution Error
-
-If you see `npm.ps1 cannot be loaded`:
+### PowerShell Error
 
 ```powershell
-# Run PowerShell as Administrator
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-
-# Or use npm.cmd instead
-npm.cmd install
 ```
 
-#### Discord OAuth Callback Error
+### Discord OAuth Error
 
-1. Verify redirect URL in Discord Developer Portal matches exactly:
-   ```
-   http://localhost:4000/api/auth/callback/discord
-   ```
-2. Ensure `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` are correct
-3. Check `BETTER_AUTH_URL` matches your API URL
+1. Check redirect URL: `http://localhost:4000/api/auth/callback/discord`
+2. Verify Client ID & Secret in `.env`
+3. Check `BETTER_AUTH_URL` matches API URL
 
-#### Database Issues
+### Database Issues
 
 ```bash
-# If database is corrupted, delete and recreate:
 rm apps/api/data.db
 npm run db:push -w apps/api
 ```

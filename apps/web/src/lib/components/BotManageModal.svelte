@@ -18,6 +18,20 @@
         isOwner: boolean;
     } = $props();
 
+    // Generate proper Discord CDN avatar URL
+    function getAvatarUrl(): string | null {
+        if (!botAvatar) return null;
+        // If already a full URL, return as-is
+        if (botAvatar.startsWith('http')) return botAvatar;
+        // Generate from hash + clientId
+        if (botClientId) {
+            return `https://cdn.discordapp.com/avatars/${botClientId}/${botAvatar}.png`;
+        }
+        return null;
+    }
+    
+    let avatarUrl = $derived(getAvatarUrl());
+
     let activeTab = $state<'profile' | 'users'>('profile');
     let collaborators = $state<any[]>([]);
     let loadingCollaborators = $state(false);
@@ -132,8 +146,8 @@
                 {#if activeTab === 'profile'}
                     <!-- Bot Profile -->
                     <div class="flex items-center gap-4 mb-6">
-                        {#if botAvatar && botClientId}
-                            <div class="size-20 rounded-xl bg-cover bg-center ring-2 ring-dark-border" style="background-image: url('https://cdn.discordapp.com/avatars/{botClientId}/{botAvatar}.png');"></div>
+                        {#if avatarUrl}
+                            <div class="size-20 rounded-xl bg-cover bg-center ring-2 ring-dark-border" style="background-image: url('{avatarUrl}');"></div>
                         {:else}
                             <div class="size-20 rounded-xl bg-gray-700 flex items-center justify-center ring-2 ring-dark-border">
                                 <span class="text-3xl font-bold text-white">{botName.charAt(0)}</span>

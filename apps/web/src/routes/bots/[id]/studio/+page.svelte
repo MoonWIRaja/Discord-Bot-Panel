@@ -20,6 +20,7 @@
     import TriggerNode from '$lib/components/flow/TriggerNode.svelte';
     import ActionNode from '$lib/components/flow/ActionNode.svelte';
     import CustomCodeNode from '$lib/components/flow/CustomCodeNode.svelte';
+    import AIProviderNode from '$lib/components/flow/AIProviderNode.svelte';
     import CustomEdge from '$lib/components/flow/CustomEdge.svelte';
     import RemoteCursors from '$lib/components/flow/RemoteCursors.svelte';
     import EdgeActionsOverlay from '$lib/components/flow/EdgeActionsOverlay.svelte';
@@ -43,6 +44,9 @@
 
     let id = $derived($page.params.id);
     let botName = $state('Loading...');
+    let flowName = $state('');
+    let allFlows = $state<any[]>([]);
+    let currentFlowIndex = $state(0);
     let saving = $state(false);
     let lastSaved = $state<Date | null>(null);
     let hasChanges = $state(false);
@@ -91,14 +95,150 @@
     // Drag state
     let draggedNodeDef = $state<any>(null);
 
+    // Flow management modals
+    let showAddFlowModal = $state(false);
+    let showRenameFlowModal = $state(false);
+    let showDeleteFlowConfirm = $state(false);
+    let showFlowDropdown = $state(false);
+    let newFlowName = $state('');
+
     // SvelteFlow state - start with empty canvas
     let nodes = $state<Node[]>([]);
     let edges = $state<Edge[]>([]);
 
+    // AI Fetch Models state (per-node: stored in node.data.fetchedModels)
+    let loadingFetchModels = $state(false);
+
+    // Fetch models from provider API and store in node data
+    async function fetchProviderModels(nodeId: string, provider: string, apiKey: string, endpoint?: string) {
+        if (!apiKey) {
+            showToast('Please enter API key first', 'error');
+            return;
+        }
+        if (provider === 'azure' && !endpoint) {
+            showToast('Please enter Azure endpoint first', 'error');
+            return;
+        }
+        
+        loadingFetchModels = true;
+        
+        try {
+            const data = await api.post('/bots/ai/fetch-models', { provider, apiKey, endpoint, validate: true });
+            if (data.models && data.models.length > 0) {
+                // Store in node data for persistence
+                updateNodeDataById(nodeId, 'fetchedModels', data.models);
+                const validatedMsg = data.validated ? ` (${data.count}/${data.total} validated)` : '';
+                showToast(`✅ Found ${data.models.length} working model(s)${validatedMsg}`, 'success');
+                hasChanges = true;
+            } else if (data.manualEntry) {
+                // Provider doesn't support model listing - show info message
+                showToast(data.message || 'Enter your model name manually below', 'success');
+                // Set a flag so user knows to enter manually
+                updateNodeDataById(nodeId, 'manualModelEntry', true);
+            } else {
+                showToast(data.message || 'No models found', 'error');
+            }
+        } catch (e: any) {
+            console.error('[FetchModels] Error:', e);
+            showToast(e.message || 'Failed to fetch models', 'error');
+        }
+        loadingFetchModels = false;
+    }
+
+    // Deploy/validate a custom model
+    let loadingDeployModel = $state(false);
+    async function deployCustomModel(nodeId: string, provider: string, apiKey: string, endpoint: string | undefined, modelName: string) {
+        if (!modelName) {
+            showToast('Please enter a model name first', 'error');
+            return;
+        }
+        if (!apiKey) {
+            showToast('Please enter API key first', 'error');
+            return;
+        }
+        
+        loadingDeployModel = true;
+        
+        try {
+            const data = await api.post('/bots/ai/deploy-model', { provider, apiKey, endpoint, modelName });
+            
+            if (data.success && data.model) {
+                // Add the deployed model to fetchedModels
+                const currentModels = nodes.find(n => n.id === nodeId)?.data?.fetchedModels || [];
+                const newModels = [...(currentModels as any[]), data.model];
+                updateNodeDataById(nodeId, 'fetchedModels', newModels);
+                
+                // Also set model for each detected mode
+                if (data.modes?.includes('chat')) updateNodeDataById(nodeId, 'modelChat', modelName);
+                if (data.modes?.includes('code')) updateNodeDataById(nodeId, 'modelCode', modelName);
+                if (data.modes?.includes('vision')) updateNodeDataById(nodeId, 'modelVision', modelName);
+                if (data.modes?.includes('image')) updateNodeDataById(nodeId, 'modelImage', modelName);
+                
+                showToast(data.message || `✅ Model deployed!`, 'success');
+                hasChanges = true;
+            } else {
+                showToast(data.error || 'Failed to deploy model', 'error');
+            }
+        } catch (e: any) {
+            console.error('[DeployModel] Error:', e);
+            showToast(e.message || 'Failed to deploy model', 'error');
+        }
+        loadingDeployModel = false;
+    }
+
+    // Delete a custom model from fetchedModels
+    function deleteCustomModel(nodeId: string, modelName: string) {
+        if (!modelName) {
+            showToast('Please enter a model name to delete', 'error');
+            return;
+        }
+        
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node) {
+            showToast('Node not found', 'error');
+            return;
+        }
+        
+        const currentModels = (node.data?.fetchedModels || []) as any[];
+        const modelExists = currentModels.some(m => m.id === modelName);
+        
+        if (!modelExists) {
+            showToast(`Model "${modelName}" not found in list`, 'error');
+            return;
+        }
+        
+        // Remove the model from fetchedModels
+        const newModels = currentModels.filter(m => m.id !== modelName);
+        updateNodeDataById(nodeId, 'fetchedModels', newModels);
+        
+        // Clear the custom model input
+        updateNodeDataById(nodeId, 'customModel', '');
+        
+        // Clear mode-specific models if they match
+        if (node.data?.modelChat === modelName) updateNodeDataById(nodeId, 'modelChat', '');
+        if (node.data?.modelCode === modelName) updateNodeDataById(nodeId, 'modelCode', '');
+        if (node.data?.modelVision === modelName) updateNodeDataById(nodeId, 'modelVision', '');
+        if (node.data?.modelImage === modelName) updateNodeDataById(nodeId, 'modelImage', '');
+        
+        showToast(`✅ Model "${modelName}" deleted!`, 'success');
+        hasChanges = true;
+    }
+
+    // Update node data by node ID
+    function updateNodeDataById(nodeId: string, key: string, value: any) {
+        nodes = nodes.map(n => {
+            if (n.id === nodeId) {
+                return { ...n, data: { ...n.data, [key]: value } };
+            }
+            return n;
+        });
+    }
+
     const nodeTypes: NodeTypes = {
         trigger: TriggerNode,
         action: ActionNode,
-        code: CustomCodeNode
+        code: CustomCodeNode,
+        aiProvider: AIProviderNode
     };
 
     // Edge types for custom edge rendering
@@ -123,6 +263,9 @@
         logic: [
             { type: 'action', label: 'Delay', icon: 'schedule', color: '#64748b' },
             { type: 'code', label: 'Custom Code', icon: 'code', color: '#f59e0b' }
+        ],
+        ai: [
+            { type: 'aiProvider', label: 'AI Provider', icon: 'smart_toy', color: '#8b5cf6' }
         ]
     };
 
@@ -137,74 +280,155 @@
             // Handle empty flows - keep default nodes
             if (!flowsData || !Array.isArray(flowsData) || flowsData.length === 0) {
                 console.log('[loadFlow] No flows found, using default');
+                flowName = 'New Flow';
+                isLoaded = true;
                 return;
             }
             
-            try {
-                let allNodes: any[] = [];
-                let allEdges: any[] = [];
-                
-                // Merge nodes and edges from all flows
-                for (let i = 0; i < flowsData.length; i++) {
-                    const flow = flowsData[i] as any;
-                    if (!flow || !flow.nodes) continue;
-                    
-                    const flowNodes = JSON.parse(flow.nodes || '[]');
-                    const flowEdges = JSON.parse(flow.edges || '[]');
-                    
-                    if (!Array.isArray(flowNodes)) continue;
-                    
-                    // Offset Y position for each subsequent flow to avoid overlap
-                    const yOffset = i * 600;
-                    
-                    for (const node of flowNodes) {
-                        if (!node || !node.position) continue;
-                        allNodes.push({
-                            ...node,
-                            position: { 
-                                x: node.position.x || 0, 
-                                y: (node.position.y || 0) + yOffset 
-                            }
-                        });
-                    }
-                    
-                    if (Array.isArray(flowEdges)) {
-                        allEdges.push(...flowEdges);
-                    }
-                }
-                
-                // De-duplicate edges and ensure unique IDs
-                const edgeMap = new Map();
-                for (const edge of allEdges) {
-                    if (!edge || !edge.source || !edge.target) continue;
-                    
-                    // Create a unique ID based on connection
-                    // This fixes the issue where different templates use 'e1', 'e2' etc.
-                    const uniqueId = `edge_${edge.source}_${edge.target}`;
-                    
-                    // Update the edge ID
-                    const newEdge = { ...edge, id: uniqueId };
-                    
-                    const key = `${edge.source}-${edge.target}`;
-                    if (!edgeMap.has(key)) {
-                        edgeMap.set(key, newEdge);
-                    }
-                }
-                allEdges = Array.from(edgeMap.values());
-                
-                console.log('[loadFlow] Merged flows:', flowsData.length, 'Total nodes:', allNodes.length, 'Total edges:', allEdges.length);
-                
-                if (allNodes.length > 0) {
-                    nodes = allNodes;
-                    edges = allEdges;
-                }
-            } catch (e) {
-                console.warn("Could not parse saved flow, using default", e);
-            }
+            // Store all flows for flow selector
+            allFlows = flowsData;
+            
+            // Load first flow by default
+            loadFlowByIndex(0);
+            
         } catch (e) {
             console.error("Failed to load flow data", e);
         }
         isLoaded = true;
+    }
+
+    // Load a specific flow by index
+    function loadFlowByIndex(index: number) {
+        if (index < 0 || index >= allFlows.length) return;
+        
+        currentFlowIndex = index;
+        const flow = allFlows[index] as any;
+        
+        try {
+            flowName = flow.name || `Flow ${index + 1}`;
+            const flowNodes = JSON.parse(flow.nodes || '[]');
+            const flowEdges = JSON.parse(flow.edges || '[]');
+            
+            if (Array.isArray(flowNodes)) {
+                nodes = flowNodes;
+            } else {
+                nodes = [];
+            }
+            
+            if (Array.isArray(flowEdges)) {
+                edges = flowEdges;
+            } else {
+                edges = [];
+            }
+            
+            console.log('[loadFlowByIndex] Loaded flow:', flowName, 'Nodes:', nodes.length, 'Edges:', edges.length);
+        } catch (e) {
+            console.warn("Could not parse flow, using empty canvas", e);
+            nodes = [];
+            edges = [];
+        }
+        
+        hasChanges = false;
+    }
+
+    // Add new flow
+    async function addNewFlow() {
+        if (!newFlowName.trim()) {
+            showToast('Please enter a flow name', 'error');
+            return;
+        }
+        
+        try {
+            const newFlow = await api.saveFlow({
+                botId: id,
+                name: newFlowName.trim(),
+                triggerType: 'message_create',
+                nodes: JSON.stringify([]),
+                edges: JSON.stringify([]),
+                published: true
+            });
+            
+            // Reload flows
+            const flowsData = await api.getFlows(id!);
+            allFlows = flowsData;
+            
+            // Switch to new flow
+            loadFlowByIndex(allFlows.length - 1);
+            
+            showToast(`Flow "${newFlowName}" created!`, 'success');
+            showAddFlowModal = false;
+            newFlowName = '';
+        } catch (e: any) {
+            showToast(e.message || 'Failed to create flow', 'error');
+        }
+    }
+
+    // Rename current flow
+    async function renameCurrentFlow() {
+        if (!newFlowName.trim()) {
+            showToast('Please enter a flow name', 'error');
+            return;
+        }
+        
+        const currentFlow = allFlows[currentFlowIndex];
+        if (!currentFlow) return;
+        
+        try {
+            await api.saveFlow({
+                botId: id,
+                id: currentFlow.id,
+                name: newFlowName.trim(),
+                triggerType: currentFlow.triggerType || 'message_create',
+                nodes: currentFlow.nodes,
+                edges: currentFlow.edges,
+                published: currentFlow.published ?? true
+            });
+            
+            // Update local state
+            allFlows[currentFlowIndex].name = newFlowName.trim();
+            flowName = newFlowName.trim();
+            
+            showToast(`Flow renamed to "${newFlowName}"`, 'success');
+            showRenameFlowModal = false;
+            newFlowName = '';
+        } catch (e: any) {
+            showToast(e.message || 'Failed to rename flow', 'error');
+        }
+    }
+
+    // Delete current flow
+    async function deleteCurrentFlow() {
+        const currentFlow = allFlows[currentFlowIndex];
+        if (!currentFlow) return;
+        
+        // Check if flow has an ID (saved to database)
+        if (!currentFlow.id) {
+            showToast('This flow has not been saved yet', 'error');
+            showDeleteFlowConfirm = false;
+            return;
+        }
+        
+        try {
+            await api.deleteFlow(id!, currentFlow.id);
+            
+            // Reload flows
+            const flowsData = await api.getFlows(id!);
+            allFlows = flowsData;
+            
+            // Switch to first flow or empty
+            if (allFlows.length > 0) {
+                loadFlowByIndex(0);
+            } else {
+                flowName = 'New Flow';
+                nodes = [];
+                edges = [];
+            }
+            
+            showToast('Flow deleted', 'success');
+            showDeleteFlowConfirm = false;
+        } catch (e: any) {
+            showToast(e.message || 'Failed to delete flow', 'error');
+        }
     }
 
     // Load available templates
@@ -216,17 +440,25 @@
         }
     }
 
-    // Import template directly into current bot
+    // Import template directly into current bot as new flow
     async function importTemplateToBot(templateId: string) {
         if (!id || importingTemplate) return;
         importingTemplate = templateId;
         try {
             await api.importTemplate(templateId, id);
             // Reload flows to show the imported template
-            await loadFlow();
-            hasChanges = true;
+            const flowsData = await api.getFlows(id);
+            allFlows = flowsData;
+            
+            // Switch to the last flow (newly imported)
+            if (allFlows.length > 0) {
+                loadFlowByIndex(allFlows.length - 1);
+            }
+            
+            showToast('Template imported as new flow!', 'success');
         } catch (e) {
             console.error("Failed to import template", e);
+            showToast('Failed to import template', 'error');
         } finally {
             importingTemplate = null;
         }
@@ -247,18 +479,42 @@
         if (!id) return;
         saving = true;
         try {
-            // Delete all existing flows first (clears imported templates)
-            await api.deleteFlows(id);
+            // Get current flow ID if editing existing flow
+            const currentFlow = allFlows[currentFlowIndex];
+            const currentFlowId = currentFlow?.id;
             
-            // Save current canvas as single merged flow
-            await api.saveFlow({
-                botId: id,
-                name: `${botName} Flow`,
-                triggerType: 'message_create',
-                nodes: JSON.stringify(nodes),
-                edges: JSON.stringify(edges),
-                published: true
-            });
+            // If we have an existing flow, update it instead of deleting all
+            if (currentFlowId) {
+                await api.saveFlow({
+                    botId: id,
+                    flowId: currentFlowId,
+                    name: flowName || `${botName} Flow`,
+                    triggerType: 'message_create',
+                    nodes: JSON.stringify(nodes),
+                    edges: JSON.stringify(edges),
+                    published: true
+                });
+            } else {
+                // No existing flow - create new one
+                await api.saveFlow({
+                    botId: id,
+                    name: flowName || `${botName} Flow`,
+                    triggerType: 'message_create',
+                    nodes: JSON.stringify(nodes),
+                    edges: JSON.stringify(edges),
+                    published: true
+                });
+            }
+            
+            // Reload flows to keep state in sync with database
+            const flowsData = await api.getFlows(id);
+            allFlows = flowsData;
+            
+            // Update currentFlowIndex if needed
+            if (allFlows.length > 0 && currentFlowIndex >= allFlows.length) {
+                currentFlowIndex = allFlows.length - 1;
+            }
+            
             lastSaved = new Date();
             hasChanges = false;
             showToast('Flow saved successfully!', 'success');
@@ -272,6 +528,24 @@
 
     function cancelSave() {
         showSaveConfirm = false;
+    }
+
+    function exportFlow() {
+        const flowData = {
+            name: `${botName} Flow`,
+            nodes: nodes,
+            edges: edges,
+            exportedAt: new Date().toISOString()
+        };
+        const jsonStr = JSON.stringify(flowData, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${botName.replace(/\s+/g, '_')}_flow.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Flow exported successfully!', 'success');
     }
 
     // Handle edge connection - SvelteFlow automatically adds the edge to the bound edges array
@@ -346,7 +620,9 @@
             position: { x: contextMenuNode.position.x + 50, y: contextMenuNode.position.y + 50 },
             data: { ...contextMenuNode.data }
         };
-        nodes = [...nodes, newNode];
+        // Use concat instead of spread to avoid RangeError
+        const currentNodes = Array.isArray(nodes) ? nodes : [];
+        nodes = currentNodes.concat([newNode]);
         hasChanges = true;
         showContextMenu = false;
     }
@@ -413,7 +689,10 @@
                 eventType: draggedNodeDef.eventType // Auto-set event type for triggers
             }
         };
-        nodes = [...nodes, newNode];
+        
+        // Use concat instead of spread to avoid RangeError
+        const currentNodes = Array.isArray(nodes) ? nodes : [];
+        nodes = currentNodes.concat([newNode]);
         hasChanges = true;
         draggedNodeDef = null;
         
@@ -740,7 +1019,76 @@
                 <span class="material-symbols-outlined">arrow_back</span>
             </button>
             <div class="h-6 w-px bg-dark-border"></div>
-            <h1 class="text-white font-bold text-lg">{botName} Flow</h1>
+            <h1 class="text-white font-bold text-lg flex items-center gap-2">
+                {botName}
+                <span class="text-gray-500">/</span>
+                <!-- Custom Flow Dropdown -->
+                <div class="relative">
+                    <button 
+                        onclick={() => showFlowDropdown = !showFlowDropdown}
+                        class="flex items-center gap-2 bg-dark-base border border-dark-border rounded px-3 py-1.5 text-sm text-white hover:bg-dark-surface transition-colors cursor-pointer"
+                    >
+                        <span>{flowName || 'New Flow'}</span>
+                        <span class="material-symbols-outlined text-[16px] text-gray-400">expand_more</span>
+                    </button>
+                    
+                    {#if showFlowDropdown}
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
+                        <!-- svelte-ignore a11y_click_events_have_key_events -->
+                        <div 
+                            class="fixed inset-0 z-40" 
+                            onclick={() => showFlowDropdown = false}
+                        ></div>
+                        
+                        <!-- Dropdown Menu -->
+                        <div class="absolute top-full left-0 mt-1 w-64 bg-dark-surface border border-dark-border rounded-lg shadow-2xl z-50 overflow-hidden">
+                            <!-- Flow List -->
+                            <div class="max-h-60 overflow-y-auto">
+                                {#each allFlows as flow, idx}
+                                    <div class="flex items-center gap-2 px-3 py-2 hover:bg-white/5 group {idx === currentFlowIndex ? 'bg-primary/10 border-l-2 border-primary' : ''}">
+                                        <!-- Flow Name (clickable) -->
+                                        <button 
+                                            onclick={() => { loadFlowByIndex(idx); showFlowDropdown = false; }}
+                                            class="flex-1 text-left text-sm text-white truncate"
+                                        >
+                                            {flow.name || `Flow ${idx + 1}`}
+                                        </button>
+                                        
+                                        <!-- Inline Actions -->
+                                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button 
+                                                onclick={(e) => { e.stopPropagation(); currentFlowIndex = idx; flowName = flow.name || `Flow ${idx + 1}`; newFlowName = flowName; showFlowDropdown = false; showRenameFlowModal = true; }}
+                                                class="p-1 hover:bg-blue-500/20 rounded text-blue-400 hover:text-blue-300"
+                                                title="Rename"
+                                            >
+                                                <span class="material-symbols-outlined text-[14px]">edit</span>
+                                            </button>
+                                            <button 
+                                                onclick={(e) => { e.stopPropagation(); currentFlowIndex = idx; flowName = flow.name || `Flow ${idx + 1}`; showFlowDropdown = false; showDeleteFlowConfirm = true; }}
+                                                class="p-1 hover:bg-red-500/20 rounded text-red-400 hover:text-red-300"
+                                                title="Delete"
+                                            >
+                                                <span class="material-symbols-outlined text-[14px]">delete</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                {/each}
+                            </div>
+                            
+                            <!-- Add Flow Button (at bottom) -->
+                            <div class="border-t border-dark-border">
+                                <button 
+                                    onclick={() => { newFlowName = ''; showFlowDropdown = false; showAddFlowModal = true; }}
+                                    class="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-green-400 hover:bg-green-500/10 transition-colors"
+                                >
+                                    <span class="material-symbols-outlined text-[18px]">add_circle</span>
+                                    Add New Flow
+                                </button>
+                            </div>
+                        </div>
+                    {/if}
+                </div>
+            </h1>
             {#if hasChanges}
                 <span class="text-xs text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded">Unsaved changes</span>
             {/if}
@@ -777,6 +1125,10 @@
                     <span class="material-symbols-outlined text-[18px]">save</span>
                 {/if}
                 Save Flow
+            </button>
+            <button onclick={exportFlow} class="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-sm transition-colors">
+                <span class="material-symbols-outlined text-[18px]">download</span>
+                Export
             </button>
             <a href="/bots/{id}/panel" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm transition-colors">
                 <span class="material-symbols-outlined text-[18px]">terminal</span>
@@ -837,6 +1189,26 @@
                     <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-1">Logic</h3>
                     <div class="space-y-1">
                         {#each nodeDefinitions.logic as def}
+                            <button 
+                                type="button"
+                                draggable="true"
+                                ondragstart={(e) => handleDragStart(e, def)}
+                                class="w-full flex items-center gap-3 p-2 rounded-lg text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors cursor-grab active:cursor-grabbing"
+                            >
+                                <div class="size-8 rounded-lg flex items-center justify-center" style="background: {def.color}20;">
+                                    <span class="material-symbols-outlined text-[18px]" style="color: {def.color};">{def.icon}</span>
+                                </div>
+                                <span class="font-medium">{def.label}</span>
+                            </button>
+                        {/each}
+                    </div>
+                </div>
+
+                <!-- AI -->
+                <div>
+                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-1">AI</h3>
+                    <div class="space-y-1">
+                        {#each nodeDefinitions.ai as def}
                             <button 
                                 type="button"
                                 draggable="true"
@@ -1293,6 +1665,266 @@
                         {/if}
                     {/if}
 
+                    <!-- AI Provider Node Options -->
+                    {#if selectedNode.type === 'aiProvider'}
+                        <div class="space-y-3">
+                            <div>
+                                <label for="ai-provider-select" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Provider</label>
+                                <select 
+                                    id="ai-provider-select"
+                                    value={selectedNode.data.provider || 'gemini'}
+                                    onchange={(e) => updateNodeData('provider', e.currentTarget.value)}
+                                    class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm"
+                                >
+                                    <option value="gemini">🌟 Gemini</option>
+                                    <option value="openai">🤖 OpenAI</option>
+                                    <option value="azure">☁️ Azure</option>
+                                    <option value="groq">⚡ Groq</option>
+                                    <option value="together">🤝 Together</option>
+                                    <option value="deepseek">🔍 DeepSeek</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="ai-provider-apikey" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">API Key</label>
+                                <input 
+                                    id="ai-provider-apikey"
+                                    type="password"
+                                    value={selectedNode.data.apiKey || ''}
+                                    oninput={(e) => updateNodeData('apiKey', e.currentTarget.value)}
+                                    placeholder="Enter API key"
+                                    class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm font-mono"
+                                />
+                            </div>
+                            {#if selectedNode.data.provider === 'azure'}
+                                <div>
+                                    <label for="ai-azure-endpoint" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Azure Endpoint</label>
+                                    <input 
+                                        id="ai-azure-endpoint"
+                                        type="text"
+                                        value={selectedNode.data.azureEndpoint || ''}
+                                        oninput={(e) => updateNodeData('azureEndpoint', e.currentTarget.value)}
+                                        placeholder="https://your-resource.openai.azure.com"
+                                        class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm"
+                                    />
+                                </div>
+                            {/if}
+                            <button
+                                onclick={() => fetchProviderModels(
+                                    selectedNode?.id || '',
+                                    String(selectedNode?.data.provider || 'gemini'),
+                                    String(selectedNode?.data.apiKey || ''),
+                                    String(selectedNode?.data.azureEndpoint || '')
+                                )}
+                                disabled={loadingFetchModels || !selectedNode?.data.apiKey}
+                                class="w-full py-2.5 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20"
+                            >
+                                {#if loadingFetchModels}
+                                    <span class="animate-spin">⏳</span> Fetching...
+                                {:else}
+                                    <span class="material-symbols-outlined text-[18px]">sync</span>
+                                    Fetch Available Models
+                                {/if}
+                            </button>
+                            
+                            <!-- Custom Model Entry -->
+                            <div class="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-lg p-3 space-y-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-amber-400">✏️</span>
+                                    <span class="text-xs font-bold text-amber-400 uppercase">Custom Model</span>
+                                    <span class="text-[10px] text-amber-400/60 ml-auto">For APIs without model listing</span>
+                                </div>
+                                <input 
+                                    type="text"
+                                    value={selectedNode?.data?.customModel || ''}
+                                    oninput={(e) => updateNodeData('customModel', e.currentTarget.value)}
+                                    placeholder="e.g., claude-opus-4-5"
+                                    class="w-full bg-dark-base border border-amber-500/30 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-400 focus:outline-none"
+                                />
+                                <button
+                                    onclick={() => deployCustomModel(
+                                        selectedNode?.id || '',
+                                        String(selectedNode?.data.provider || 'azure'),
+                                        String(selectedNode?.data.apiKey || ''),
+                                        String(selectedNode?.data.azureEndpoint || ''),
+                                        String(selectedNode?.data.customModel || '')
+                                    )}
+                                    disabled={loadingDeployModel || !selectedNode?.data?.customModel || !selectedNode?.data?.apiKey}
+                                    class="w-full py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-500/20"
+                                >
+                                    {#if loadingDeployModel}
+                                        <span class="animate-spin">⏳</span> Validating...
+                                    {:else}
+                                        <span class="material-symbols-outlined text-[18px]">rocket_launch</span>
+                                        Deploy Model
+                                    {/if}
+                                </button>
+                                {#if selectedNode?.data?.customModel && ((selectedNode?.data?.fetchedModels || []) as any[]).some((m: any) => m.id === selectedNode?.data?.customModel)}
+                                    <div class="text-[10px] text-green-400/80 flex items-center gap-1">
+                                        <span>✓</span> Model "{selectedNode.data.customModel}" deployed and ready!
+                                    </div>
+                                {/if}
+                                
+                                <!-- Delete Model Button -->
+                                <button
+                                    onclick={() => deleteCustomModel(
+                                        selectedNode?.id || '',
+                                        String(selectedNode?.data?.customModel || '')
+                                    )}
+                                    disabled={!selectedNode?.data?.customModel || !((selectedNode?.data?.fetchedModels || []) as any[]).some((m: any) => m.id === selectedNode?.data?.customModel)}
+                                    class="w-full py-2 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm flex items-center justify-center gap-2 transition-all"
+                                >
+                                    <span class="material-symbols-outlined text-[18px]">delete</span>
+                                    Delete Model
+                                </button>
+                            </div>
+                            
+                            {#if ((selectedNode?.data?.fetchedModels || []) as any[]).length > 0}
+                                <!-- Header -->
+                                <div class="bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-lg px-3 py-2 flex items-center gap-2 border border-green-500/30">
+                                    <span class="text-green-400">✅</span>
+                                    <span class="text-sm font-bold text-green-400">{((selectedNode?.data?.fetchedModels || []) as any[]).length} Models</span>
+                                    <span class="text-xs text-green-400/60 ml-auto px-2 py-0.5 bg-green-500/20 rounded">{String(selectedNode?.data?.provider || '').toUpperCase()}</span>
+                                </div>
+                                
+                                <!-- Mode Cards -->
+                                <div class="grid gap-2 mt-2">
+                                    
+                                    <!-- Chat Models -->
+                                    {#if ((selectedNode?.data?.fetchedModels || []) as any[]).filter((m: any) => m.modes?.includes('chat')).length > 0}
+                                        <div class="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/30 rounded-lg overflow-hidden">
+                                            <div class="px-3 py-2 bg-blue-500/10 flex items-center gap-2 border-b border-blue-500/20">
+                                                <span>💬</span>
+                                                <span class="text-xs font-bold text-blue-400">CHAT</span>
+                                                <span class="text-[10px] text-blue-400/60 ml-auto bg-blue-500/20 px-1.5 py-0.5 rounded-full">{((selectedNode?.data?.fetchedModels || []) as any[]).filter((m: any) => m.modes?.includes('chat')).length}</span>
+                                            </div>
+                                            <div class="p-2 space-y-1">
+                                                {#each ((selectedNode?.data?.fetchedModels || []) as any[]).filter((m: any) => m.modes?.includes('chat')) as model}
+                                                    <div class="text-[11px] text-gray-300 bg-dark-base/50 rounded px-2 py-1 truncate" title={model.id}>{model.name}</div>
+                                                {/each}
+                                            </div>
+                                        </div>
+                                    {/if}
+                                    
+                                    {#if ((selectedNode?.data?.fetchedModels || []) as any[]).filter((m: any) => m.modes?.includes('code')).length > 0}
+                                        <div class="bg-gradient-to-br from-amber-500/10 to-orange-600/5 border border-amber-500/30 rounded-lg overflow-hidden">
+                                            <div class="px-3 py-2 bg-amber-500/10 flex items-center gap-2 border-b border-amber-500/20">
+                                                <span>💻</span>
+                                                <span class="text-xs font-bold text-amber-400">CODE</span>
+                                                <span class="text-[10px] text-amber-400/60 ml-auto bg-amber-500/20 px-1.5 py-0.5 rounded-full">{((selectedNode?.data?.fetchedModels || []) as any[]).filter((m: any) => m.modes?.includes('code')).length}</span>
+                                            </div>
+                                            <div class="p-2 space-y-1">
+                                                {#each ((selectedNode?.data?.fetchedModels || []) as any[]).filter((m: any) => m.modes?.includes('code')) as model}
+                                                    <div class="text-[11px] text-gray-300 bg-dark-base/50 rounded px-2 py-1 truncate" title={model.id}>{model.name}</div>
+                                                {/each}
+                                            </div>
+                                        </div>
+                                    {/if}
+                                    
+                                    {#if ((selectedNode?.data?.fetchedModels || []) as any[]).filter((m: any) => m.modes?.includes('vision')).length > 0}
+                                        <div class="bg-gradient-to-br from-cyan-500/10 to-teal-600/5 border border-cyan-500/30 rounded-lg overflow-hidden">
+                                            <div class="px-3 py-2 bg-cyan-500/10 flex items-center gap-2 border-b border-cyan-500/20">
+                                                <span>👁️</span>
+                                                <span class="text-xs font-bold text-cyan-400">VISION</span>
+                                                <span class="text-[10px] text-cyan-400/60 ml-auto bg-cyan-500/20 px-1.5 py-0.5 rounded-full">{((selectedNode?.data?.fetchedModels || []) as any[]).filter((m: any) => m.modes?.includes('vision')).length}</span>
+                                            </div>
+                                            <div class="p-2 space-y-1">
+                                                {#each ((selectedNode?.data?.fetchedModels || []) as any[]).filter((m: any) => m.modes?.includes('vision')) as model}
+                                                    <div class="text-[11px] text-gray-300 bg-dark-base/50 rounded px-2 py-1 truncate" title={model.id}>{model.name}</div>
+                                                {/each}
+                                            </div>
+                                        </div>
+                                    {/if}
+                                    
+                                    {#if ((selectedNode?.data?.fetchedModels || []) as any[]).filter((m: any) => m.modes?.includes('image')).length > 0}
+                                        <div class="bg-gradient-to-br from-pink-500/10 to-rose-600/5 border border-pink-500/30 rounded-lg overflow-hidden">
+                                            <div class="px-3 py-2 bg-pink-500/10 flex items-center gap-2 border-b border-pink-500/20">
+                                                <span>🎨</span>
+                                                <span class="text-xs font-bold text-pink-400">IMAGE</span>
+                                                <span class="text-[10px] text-pink-400/60 ml-auto bg-pink-500/20 px-1.5 py-0.5 rounded-full">{((selectedNode?.data?.fetchedModels || []) as any[]).filter((m: any) => m.modes?.includes('image')).length}</span>
+                                            </div>
+                                            <div class="p-2 space-y-1">
+                                                {#each ((selectedNode?.data?.fetchedModels || []) as any[]).filter((m: any) => m.modes?.includes('image')) as model}
+                                                    <div class="text-[11px] text-gray-300 bg-dark-base/50 rounded px-2 py-1 truncate" title={model.id}>{model.name}</div>
+                                                {/each}
+                                            </div>
+                                        </div>
+                                    {/if}
+                                    
+                                    {#if ((selectedNode?.data?.fetchedModels || []) as any[]).filter((m: any) => m.modes?.includes('audio')).length > 0}
+                                        <div class="bg-gradient-to-br from-purple-500/10 to-violet-600/5 border border-purple-500/30 rounded-lg overflow-hidden">
+                                            <div class="px-3 py-2 bg-purple-500/10 flex items-center gap-2 border-b border-purple-500/20">
+                                                <span>🎵</span>
+                                                <span class="text-xs font-bold text-purple-400">AUDIO</span>
+                                                <span class="text-[10px] text-purple-400/60 ml-auto bg-purple-500/20 px-1.5 py-0.5 rounded-full">{((selectedNode?.data?.fetchedModels || []) as any[]).filter((m: any) => m.modes?.includes('audio')).length}</span>
+                                            </div>
+                                            <div class="p-2 space-y-1">
+                                                {#each ((selectedNode?.data?.fetchedModels || []) as any[]).filter((m: any) => m.modes?.includes('audio')) as model}
+                                                    <div class="text-[11px] text-gray-300 bg-dark-base/50 rounded px-2 py-1 truncate" title={model.id}>{model.name}</div>
+                                                {/each}
+                                            </div>
+                                        </div>
+                                    {/if}
+                                </div>
+                            {/if}
+                        </div>
+                    {/if}
+
+                    <!-- AI Mode Node Options -->
+                    {#if selectedNode.type === 'aiMode'}
+                        <div class="space-y-3">
+                            <div>
+                                <label for="ai-mode-provider" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Provider</label>
+                                <select 
+                                    id="ai-mode-provider"
+                                    value={selectedNode.data.provider || 'gemini'}
+                                    onchange={(e) => updateNodeData('provider', e.currentTarget.value)}
+                                    class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm"
+                                >
+                                    <option value="gemini">🌟 Gemini</option>
+                                    <option value="openai">🤖 OpenAI</option>
+                                    <option value="groq">⚡ Groq</option>
+                                    <option value="together">🤝 Together</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="ai-mode-apikey" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">API Key</label>
+                                <input 
+                                    id="ai-mode-apikey"
+                                    type="password"
+                                    value={selectedNode.data.apiKey || ''}
+                                    oninput={(e) => updateNodeData('apiKey', e.currentTarget.value)}
+                                    placeholder="Enter API key"
+                                    class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm font-mono"
+                                />
+                            </div>
+                            <div>
+                                <label for="ai-mode-select" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Mode</label>
+                                <select 
+                                    id="ai-mode-select"
+                                    value={selectedNode.data.mode || 'chat'}
+                                    onchange={(e) => updateNodeData('mode', e.currentTarget.value)}
+                                    class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm"
+                                >
+                                    <option value="chat">💬 Chat</option>
+                                    <option value="code">💻 Code</option>
+                                    <option value="image">🎨 Image</option>
+                                </select>
+                            </div>
+                            <button
+                                onclick={() => fetchProviderModels(selectedNode?.id || '', String(selectedNode?.data.provider || 'gemini'), String(selectedNode?.data.apiKey || ''), '')}
+                                disabled={loadingFetchModels || !selectedNode?.data.apiKey}
+                                class="w-full py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded-lg disabled:opacity-50"
+                            >
+                                {loadingFetchModels ? '⏳ Loading...' : '🚀 Deploy Model'}
+                            </button>
+                            {#if ((selectedNode?.data?.fetchedModels || []) as any[]).length > 0}
+                                <div class="bg-green-500/10 border border-green-500/30 rounded-lg p-2 text-center">
+                                    <p class="text-xs text-green-400">✅ Model ready: {((selectedNode?.data?.fetchedModels || []) as any[])[0]?.name}</p>
+                                </div>
+                            {/if}
+                        </div>
+                    {/if}
+
                     <!-- Delete button -->
                     <button 
                         onclick={() => { contextMenuNode = selectedNode; deleteNode(); }}
@@ -1378,6 +2010,81 @@
     </div>
 {/if}
 
+
+<!-- Add Flow Modal -->
+{#if showAddFlowModal}
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-dark-surface border border-dark-border rounded-xl p-6 w-96 shadow-2xl">
+            <h3 class="text-white font-bold text-lg mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-green-400">add_circle</span>
+                Add New Flow
+            </h3>
+            <input 
+                type="text"
+                bind:value={newFlowName}
+                placeholder="Flow name..."
+                class="w-full bg-dark-base border border-dark-border rounded-lg px-4 py-2 text-white mb-4"
+            />
+            <div class="flex gap-2 justify-end">
+                <button onclick={() => showAddFlowModal = false} class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm">
+                    Cancel
+                </button>
+                <button onclick={addNewFlow} class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold">
+                    Create Flow
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
+
+<!-- Rename Flow Modal -->
+{#if showRenameFlowModal}
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-dark-surface border border-dark-border rounded-xl p-6 w-96 shadow-2xl">
+            <h3 class="text-white font-bold text-lg mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-blue-400">edit</span>
+                Rename Flow
+            </h3>
+            <input 
+                type="text"
+                bind:value={newFlowName}
+                placeholder="New flow name..."
+                class="w-full bg-dark-base border border-dark-border rounded-lg px-4 py-2 text-white mb-4"
+            />
+            <div class="flex gap-2 justify-end">
+                <button onclick={() => showRenameFlowModal = false} class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm">
+                    Cancel
+                </button>
+                <button onclick={renameCurrentFlow} class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold">
+                    Rename
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
+
+<!-- Delete Flow Confirmation -->
+{#if showDeleteFlowConfirm}
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-dark-surface border border-dark-border rounded-xl p-6 w-96 shadow-2xl">
+            <h3 class="text-white font-bold text-lg mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-red-400">delete</span>
+                Delete Flow
+            </h3>
+            <p class="text-gray-400 mb-4">
+                Are you sure you want to delete "<span class="text-white font-bold">{flowName}</span>"? This action cannot be undone.
+            </p>
+            <div class="flex gap-2 justify-end">
+                <button onclick={() => showDeleteFlowConfirm = false} class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm">
+                    Cancel
+                </button>
+                <button onclick={deleteCurrentFlow} class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold">
+                    Delete
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}
 
 <style>
     :global(.svelte-flow) {

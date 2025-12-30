@@ -32,6 +32,44 @@ router.get('/:id', async (req: Request, res: Response) => {
     }
 });
 
+// Create new template (user upload)
+router.post('/', async (req: Request, res: Response) => {
+    try {
+        const user = (req as any).user;
+        if (!user) {
+            return res.status(401).json({ error: 'Authentication required' });
+        }
+
+        const { name, description, category, icon, color, nodes, edges, triggerType } = req.body;
+
+        if (!name || !nodes || !edges) {
+            return res.status(400).json({ error: 'Name, nodes, and edges are required' });
+        }
+
+        const templateId = randomUUID();
+        const newTemplate = {
+            id: templateId,
+            name,
+            description: description || `${name} template`,
+            category: category || 'utility',
+            icon: icon || 'code',
+            color: color || '#3b82f6',
+            nodes,
+            edges,
+            downloads: 0,
+            createdBy: user.id,
+            creatorName: user.name || user.email || 'Anonymous'
+        };
+
+        await db.insert(templates).values(newTemplate);
+
+        res.json(newTemplate);
+    } catch (error: any) {
+        console.error('[Templates] Error creating template:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Import template to a bot (creates a new flow)
 router.post('/:id/import/:botId', async (req: Request, res: Response) => {
     try {
@@ -52,7 +90,7 @@ router.post('/:id/import/:botId', async (req: Request, res: Response) => {
             triggerType: 'mixed', // Template can have multiple triggers
             nodes: template.nodes,
             edges: template.edges,
-            published: false
+            published: true
         });
         
         // Increment download count

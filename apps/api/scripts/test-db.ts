@@ -1,10 +1,10 @@
-import { db, connection } from '../src/db/index.js';
+import { db, client } from '../src/db/index.js';
 import { sql } from 'drizzle-orm';
 
 async function main() {
   try {
     console.log('Testing database connection...');
-    const result = await db.execute(sql`SELECT 1`);
+    const result = await client.execute('SELECT 1');
     console.log('Connection successful!', result);
     process.exit(0);
   } catch (error) {

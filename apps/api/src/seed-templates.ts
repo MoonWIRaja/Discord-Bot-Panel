@@ -63,6 +63,7 @@ client.liveConfig = client.liveConfig || {};
 client.liveConfig.channelId = channel.id;
 client.liveConfig.guildId = interaction.guild.id;
 
+await client.saveConfig();
 await interaction.reply(\`✅ Live notifications will be sent to <#\${channel.id}>\`);`
                 }
             },
@@ -106,6 +107,7 @@ client.liveProfiles.push({
     lastLive: false
 });
 
+await client.saveConfig();
 await interaction.reply(\`✅ Added \${platform} profile to monitoring: \${url}\`);`
                 }
             },
@@ -178,6 +180,7 @@ if (index === -1) {
 profiles.splice(index, 1);
 client.liveProfiles = profiles;
 
+await client.saveConfig();
 await interaction.reply(\`🗑️ Removed profile: \${url}\`);`
                 }
             }
@@ -423,163 +426,168 @@ await interaction.reply('▶️ Resumed playback!');`
         ]),
         isDefault: true,
         downloads: 0
-    },
-
+        },
     // ============================================
-    // MOVIE BOT
+        // AI ASSISTANT BOT - Multi-Provider
     // ============================================
     {
         id: randomUUID(),
-        name: 'Movie Bot',
-        description: 'Search for movies, get recommendations, and watch movies together in voice chat!',
+        name: 'AI Assistant Bot',
+        description: 'Complete AI system with private rooms (/aichannel), public chat (/aichat), and image generation (/aiimage). Multi-provider support!',
         category: 'utility',
-        icon: 'movie',
-        color: '#3b82f6',
+        icon: 'smart_toy',
+        color: '#10b981',
         nodes: JSON.stringify([
+            // AI Provider 1 - Gemini
             {
-                id: 'trigger-movie',
-                type: 'trigger',
+                id: 'ai-provider-gemini',
+                type: 'aiProvider',
                 position: { x: 100, y: 50 },
-                data: { 
-                    label: 'Slash Command', 
-                    icon: 'terminal', 
-                    color: '#8b5cf6',
-                    eventType: 'interactionCreate',
-                    commandName: 'movie',
-                    commandDescription: 'Get movie information',
-                    options: [
-                        { name: 'title', description: 'Movie title to search', type: 'STRING', required: true }
-                    ]
-                }
-            },
-            {
-                id: 'code-movie',
-                type: 'code',
-                position: { x: 400, y: 50 },
-                data: { 
-                    label: 'Search Movie', 
-                    icon: 'code', 
-                    color: '#f59e0b',
-                    code: `const title = interaction.options.getString('title');
-await interaction.deferReply();
-
-try {
-    // Using OMDb API for movie info
-    const response = await fetch(\`http://www.omdbapi.com/?t=\${encodeURIComponent(title)}&apikey=2e20b33c\`);
-    const movie = await response.json();
-
-    if (movie.Response === 'False') {
-        return interaction.editReply(\`❌ Movie not found: \${title}\`);
-    }
-
-    const embed = {
-        title: \`🎬 \${movie.Title} (\${movie.Year})\`,
-        description: movie.Plot,
-        thumbnail: { url: movie.Poster !== 'N/A' ? movie.Poster : null },
-        fields: [
-            { name: '⭐ Rating', value: movie.imdbRating || 'N/A', inline: true },
-            { name: '🎭 Genre', value: movie.Genre || 'N/A', inline: true },
-            { name: '🎬 Director', value: movie.Director || 'N/A', inline: true },
-            { name: '🕐 Runtime', value: movie.Runtime || 'N/A', inline: true }
-        ],
-        color: 0x3b82f6,
-        footer: { text: 'Use /watch to stream this movie in voice chat!' }
-    };
-
-    await interaction.editReply({ embeds: [embed] });
-} catch (error) {
-    await interaction.editReply('❌ Error searching for movie.');
-}`
-                }
-            },
-            {
-                id: 'trigger-recommend',
-                type: 'trigger',
-                position: { x: 100, y: 200 },
-                data: { 
-                    label: 'Slash Command', 
-                    icon: 'terminal', 
-                    color: '#8b5cf6',
-                    eventType: 'interactionCreate',
-                    commandName: 'recommend',
-                    commandDescription: 'Get a movie recommendation',
-                    options: [
-                        { name: 'genre', description: 'Genre (optional)', type: 'STRING', required: false }
-                    ]
-                }
-            },
-            {
-                id: 'code-recommend',
-                type: 'code',
-                position: { x: 400, y: 200 },
-                data: { 
-                    label: 'Recommend', 
-                    icon: 'code', 
-                    color: '#f59e0b',
-                    code: `const genre = (interaction.options.getString('genre') || 'any').toLowerCase();
-
-const movies = {
-    action: ['John Wick', 'Mad Max: Fury Road', 'The Dark Knight', 'Die Hard', 'Mission: Impossible'],
-    comedy: ['Superbad', 'The Hangover', 'Step Brothers', 'Bridesmaids', 'Anchorman'],
-    horror: ['Get Out', 'Hereditary', 'The Conjuring', 'A Quiet Place', 'It'],
-    scifi: ['Inception', 'Interstellar', 'The Matrix', 'Blade Runner 2049', 'Dune'],
-    drama: ['The Shawshank Redemption', 'Forrest Gump', 'The Godfather', 'Schindler\\'s List', 'Parasite'],
-    any: ['Inception', 'The Dark Knight', 'Pulp Fiction', 'Fight Club', 'The Matrix', 'Interstellar']
-};
-
-const list = movies[genre] || movies.any;
-const random = list[Math.floor(Math.random() * list.length)];
-
-await interaction.reply(\`🎬 **Movie Recommendation** (\${genre.toUpperCase()})\\n\\n🍿 **\${random}**\\n\\nUse \\\`/movie \${random}\\\` to get more info!\\nUse \\\`/watch \${random}\\\` to stream in voice chat!\`);`
-                }
-            },
-            {
-                id: 'trigger-watch',
-                type: 'trigger',
-                position: { x: 100, y: 350 },
-                data: { 
-                    label: 'Slash Command', 
-                    icon: 'terminal', 
-                    color: '#8b5cf6',
-                    eventType: 'interactionCreate',
-                    commandName: 'watch',
-                    commandDescription: 'Generate a stream link',
-                    options: [
-                        { name: 'title', description: 'Movie title to watch', type: 'STRING', required: true }
-                    ]
-                }
-            },
-            {
-                id: 'code-watch',
-                type: 'code',
-                position: { x: 400, y: 350 },
                 data: {
-                    label: 'Watch Movie',
-                    icon: 'code',
+                    label: 'Gemini Provider',
+                    icon: 'smart_toy',
+                    color: '#8b5cf6',
+                    provider: 'gemini',
+                    apiKey: '',
+                    modeChat: true,
+                    modeCode: true,
+                    modeImage: true,
+                    modeVision: true,
+                    models: {
+                        chat: 'gemini-2.0-flash-exp',
+                        code: 'gemini-2.0-flash-exp',
+                        image: 'imagen-3.0-generate-001',
+                        vision: 'gemini-2.0-flash-exp'
+                    }
+                }
+            },
+            // AI Provider 2 - Groq
+            {
+                id: 'ai-provider-groq',
+                type: 'aiProvider',
+                position: { x: 400, y: 50 },
+                data: {
+                    label: 'Groq Provider',
+                    icon: 'smart_toy',
+                    color: '#22c55e',
+                    provider: 'groq',
+                    apiKey: '',
+                    modeChat: true,
+                    modeCode: true,
+                    modeVision: true,
+                    models: {
+                        chat: 'llama-3.3-70b-versatile',
+                        code: 'llama-3.3-70b-versatile',
+                        vision: 'llama-3.2-90b-vision-preview'
+                    }
+                }
+            },
+            // AI Provider 3 - OpenAI
+            {
+                id: 'ai-provider-openai',
+                type: 'aiProvider',
+                position: { x: 700, y: 50 },
+                data: {
+                    label: 'OpenAI Provider',
+                    icon: 'smart_toy',
+                    color: '#10b981',
+                    provider: 'openai',
+                    apiKey: '',
+                    modeChat: true,
+                    modeCode: true,
+                    modeImage: true,
+                    modeVision: true,
+                    models: {
+                        chat: 'gpt-4o',
+                        code: 'gpt-4o',
+                        image: 'dall-e-3',
+                        vision: 'gpt-4o'
+                    }
+                }
+            },
+            // /aichannel - Private AI rooms
+            {
+                id: 'trigger-aichannel',
+                type: 'trigger',
+                position: { x: 100, y: 250 },
+                data: {
+                    label: '/aichannel',
+                    icon: 'forum',
+                    color: '#06b6d4',
+                    eventType: 'interactionCreate',
+                    commandName: 'aichannel',
+                    commandDescription: 'Set channel for private AI rooms'
+                }
+            },
+            // /aichat - Public chat (auto mode)
+            {
+                id: 'trigger-aichat',
+                type: 'trigger',
+                position: { x: 400, y: 250 },
+                data: {
+                    label: '/aichat',
+                    icon: 'chat',
+                    color: '#10b981',
+                    eventType: 'interactionCreate',
+                    commandName: 'aichat',
+                    commandDescription: 'Set public AI chat channel'
+                }
+            },
+            // /aiimage - Public image (image mode)
+            {
+                id: 'trigger-aiimage',
+                type: 'trigger',
+                position: { x: 700, y: 250 },
+                data: {
+                    label: '/aiimage',
+                    icon: 'image',
                     color: '#f59e0b',
-                    code: `const title = interaction.options.getString('title');
-// Generate fake stream link (or real if available)
-await interaction.reply(\`🍿 Watch **\${title}** here: https://tv7.lk21official.cc/search?q=\${encodeURIComponent(title)}\\n\\n*Please share your screen to watch with friends!*\`);`
+                    eventType: 'interactionCreate',
+                    commandName: 'aiimage',
+                    commandDescription: 'Set public AI image channel'
+                }
+            },
+            // /set - Settings (private room only)
+            {
+                id: 'trigger-set',
+                type: 'trigger',
+                position: { x: 100, y: 400 },
+                data: {
+                    label: '/set',
+                    icon: 'settings',
+                    color: '#8b5cf6',
+                    eventType: 'interactionCreate',
+                    commandName: 'set',
+                    commandDescription: 'Change AI settings (private room)'
+                }
+            },
+            // /inv - Invite user (private room only)
+            {
+                id: 'trigger-inv',
+                type: 'trigger',
+                position: { x: 400, y: 400 },
+                data: {
+                    label: '/inv',
+                    icon: 'person_add',
+                    color: '#64748b',
+                    eventType: 'interactionCreate',
+                    commandName: 'inv',
+                    commandDescription: 'Invite user to private AI room'
                 }
             }
         ]),
-        edges: JSON.stringify([
-            { id: 'e1', source: 'trigger-movie', target: 'code-movie' },
-            { id: 'e2', source: 'trigger-recommend', target: 'code-recommend' },
-            { id: 'e3', source: 'trigger-watch', target: 'code-watch' }
-        ]),
-        isDefault: true,
-        downloads: 0
-    }
-];
+            edges: JSON.stringify([]),
+            isDefault: true,
+            downloads: 0
+        }
+    ];
 
 async function seedTemplates() {
     console.log('[Seed] Seeding default templates...');
-    
+
     try {
-        // Clear existing default templates first
         await db.delete(templates);
-        
+
         for (const template of defaultTemplates) {
             await db.insert(templates).values(template);
             console.log(`[Seed] Added template: ${template.name}`);
