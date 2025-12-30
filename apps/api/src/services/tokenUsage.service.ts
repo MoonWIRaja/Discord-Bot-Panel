@@ -486,7 +486,8 @@ export class TokenUsageService {
                 return (tokens / 1_000_000) * pricePerMillion;
             };
 
-            return updatedLimits.map(limit => ({
+            // Map limits to UsageSummary
+            const rawSummaries = updatedLimits.map(limit => ({
                 providerId: limit.providerId,
                 providerLabel: limit.providerLabel,
                 dailyUsed: limit.dailyUsed || 0,
@@ -501,6 +502,30 @@ export class TokenUsageService {
                 totalRequests: countMap.get(limit.providerId) || 0,
                 isEnabled: limit.isEnabled || false
             }));
+
+            // Group by providerLabel and aggregate usage data
+            const groupedMap = new Map<string, UsageSummary>();
+            for (const summary of rawSummaries) {
+                const existing = groupedMap.get(summary.providerLabel);
+                if (existing) {
+                    // Aggregate usage from multiple providers with same label
+                    existing.dailyUsed += summary.dailyUsed;
+                    existing.weeklyUsed += summary.weeklyUsed;
+                    existing.monthlyUsed += summary.monthlyUsed;
+                    existing.dailyLimit = Math.max(existing.dailyLimit, summary.dailyLimit);
+                    existing.weeklyLimit = Math.max(existing.weeklyLimit, summary.weeklyLimit);
+                    existing.monthlyLimit = Math.max(existing.monthlyLimit, summary.monthlyLimit);
+                    existing.dailyCostUsd += summary.dailyCostUsd;
+                    existing.weeklyCostUsd += summary.weeklyCostUsd;
+                    existing.monthlyCostUsd += summary.monthlyCostUsd;
+                    existing.totalRequests += summary.totalRequests;
+                    existing.isEnabled = existing.isEnabled || summary.isEnabled;
+                } else {
+                    groupedMap.set(summary.providerLabel, { ...summary });
+                }
+            }
+
+            return Array.from(groupedMap.values());
         } catch (error) {
             console.error('[TokenUsageService] Error getting usage summary:', error);
             return [];
