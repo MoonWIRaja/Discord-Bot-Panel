@@ -63,6 +63,7 @@ interface ServerQueue {
     volume: number;
     playing: boolean;
     loop: boolean;
+    currentFFmpeg?: child_process.ChildProcess; // FFmpeg process reference
 }
 
 // Store queues per guild
