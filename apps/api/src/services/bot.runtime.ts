@@ -2859,29 +2859,38 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                 // Prefer non-Azure providers first, then Azure with chat models
                 const rewriteProvider = providers.find((p: any) =>
                     (p.modeChat === true || p.modeChat === 'true') &&
-                    ['gemini', 'openai', 'claude', 'groq'].includes(p.id)
+                    ['gemini', 'openai', 'claude', 'groq'].includes(p.provider || p.id)
                 ) || providers.find((p: any) =>
                     p.modeChat === true || p.modeChat === 'true'
                 ) || providers.find((p: any) =>
-                    ['gemini', 'openai', 'claude', 'groq'].includes(p.id) && p.apiKey
+                    ['gemini', 'openai', 'claude', 'groq', 'azure'].includes(p.provider || p.id) && p.apiKey
                 );
 
                 if (rewriteProvider) {
                     try {
                         await message.react('✨');
-                        console.log(`[BotRuntime] Rewriting prompt with ${rewriteProvider.id}...`);
+                        const genericRewriteProvider = (rewriteProvider.provider || rewriteProvider.id) as string;
+                        console.log(`[BotRuntime] Rewriting prompt with ${genericRewriteProvider} (${rewriteProvider.label || rewriteProvider.id})...`);
 
                         // Get the chat model from provider config, or use default
-                        const chatModel = rewriteProvider.models?.chat ||
-                            (rewriteProvider.id === 'gemini' ? 'gemini-2.5-flash' :
-                                rewriteProvider.id === 'openai' ? 'gpt-4o' :
-                                    rewriteProvider.id === 'claude' ? 'claude-3-5-sonnet-20241022' :
-                                        rewriteProvider.id === 'groq' ? 'llama-3.3-70b-versatile' : 'auto');
+                        const chatModel = rewriteProvider.modelChat || rewriteProvider.models?.chat ||
+                            (genericRewriteProvider === 'gemini' ? 'gemini-2.5-flash' :
+                                genericRewriteProvider === 'openai' ? 'gpt-4o' :
+                                    genericRewriteProvider === 'claude' ? 'claude-3-5-sonnet-20241022' :
+                                        genericRewriteProvider === 'groq' ? 'llama-3.3-70b-versatile' :
+                                            genericRewriteProvider === 'azure' ? (rewriteProvider.fetchedModels?.[0]?.id || 'gpt-4o') : 'auto');
+
+                        // Strip Discord mentions from prompt before rewrite
+                        const cleanPrompt = message.content
+                            .replace(/<@!?\d+>/g, '')  // User mentions
+                            .replace(/<@&\d+>/g, '')   // Role mentions
+                            .replace(/<#\d+>/g, '')    // Channel mentions
+                            .trim();
 
                         finalPrompt = await AIService.rewritePromptForImage({
-                            provider: rewriteProvider.id,
+                            provider: genericRewriteProvider,
                             apiKey: rewriteProvider.apiKey,
-                            prompt: message.content,
+                            prompt: cleanPrompt,
                             imageDescription: imageDescription || undefined,
                             azureEndpoint: rewriteProvider.endpoint || rewriteProvider.azureEndpoint,
                             model: chatModel
