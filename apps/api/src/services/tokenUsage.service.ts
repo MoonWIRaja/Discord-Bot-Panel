@@ -413,7 +413,10 @@ export class TokenUsageService {
      */
     static async getUsageSummary(botId: string): Promise<UsageSummary[]> {
         try {
-            // First, fetch bot config to find configured providers
+            // First, resync providers to clean up orphans and update labels
+            await this.resyncProviders(botId);
+
+            // Then, fetch bot config to find configured providers
             try {
                 const botData = await db.select({
                     config: bots.config
@@ -427,7 +430,8 @@ export class TokenUsageService {
                     if (config.ai && Array.isArray(config.ai.providers)) {
                         for (const provider of config.ai.providers) {
                             if (provider.id) {
-                                await this.initializeProvider(botId, provider.id, provider.id);
+                                // Use provider.label for display name, fallback to id
+                                await this.initializeProvider(botId, provider.id, provider.label || provider.id);
                             }
                         }
                     }
@@ -692,6 +696,68 @@ export class TokenUsageService {
             return bot[0]?.userId || null;
         } catch (error) {
             return null;
+        }
+    }
+
+    /**
+     * Resync providers - delete orphan providers not in bot config, update labels
+     */
+    static async resyncProviders(botId: string): Promise<{ deleted: number; updated: number }> {
+        let deleted = 0;
+        let updated = 0;
+
+        try {
+            // 1. Get current providers from bot config
+            const botData = await db.select({ config: bots.config })
+                .from(bots)
+                .where(eq(bots.id, botId));
+
+            const configProviders = new Map<string, string>(); // id -> label
+            if (botData.length > 0 && botData[0].config) {
+                const config = botData[0].config as any;
+                if (config.ai && Array.isArray(config.ai.providers)) {
+                    for (const p of config.ai.providers) {
+                        if (p.id) {
+                            configProviders.set(p.id, p.label || p.id);
+                        }
+                    }
+                }
+            }
+
+            // 2. Get existing limits
+            const existingLimits = await db.select({
+                id: aiTokenLimits.id,
+                providerId: aiTokenLimits.providerId,
+                providerLabel: aiTokenLimits.providerLabel
+            })
+                .from(aiTokenLimits)
+                .where(eq(aiTokenLimits.botId, botId));
+
+            // 3. Delete orphan providers (not in config)
+            for (const limit of existingLimits) {
+                if (!configProviders.has(limit.providerId)) {
+                    await db.delete(aiTokenLimits)
+                        .where(eq(aiTokenLimits.id, limit.id));
+                    console.log(`[TokenUsageService] Deleted orphan provider: ${limit.providerId}`);
+                    deleted++;
+                } else {
+                    // 4. Update label if different
+                    const newLabel = configProviders.get(limit.providerId)!;
+                    if (limit.providerLabel !== newLabel) {
+                        await db.update(aiTokenLimits)
+                            .set({ providerLabel: newLabel, updatedAt: new Date() })
+                            .where(eq(aiTokenLimits.id, limit.id));
+                        console.log(`[TokenUsageService] Updated provider label: ${limit.providerId} -> ${newLabel}`);
+                        updated++;
+                    }
+                }
+            }
+
+            console.log(`[TokenUsageService] Resync complete: ${deleted} deleted, ${updated} updated`);
+            return { deleted, updated };
+        } catch (error) {
+            console.error('[TokenUsageService] Error resyncing providers:', error);
+            return { deleted: 0, updated: 0 };
         }
     }
 }
