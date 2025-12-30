@@ -659,9 +659,9 @@
                             class="px-3 py-1.5 bg-white/5 border border-dark-border rounded-lg text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
                         />
                         {#if tokenSummary.length > 0}
-                            <select bind:value={selectedProvider} class="px-3 py-1.5 bg-white/5 border border-dark-border rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary">
+                            <select bind:value={selectedProvider} class="px-3 py-1.5 bg-dark-surface border border-dark-border rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary">
                                 {#each tokenSummary as provider}
-                                    <option value={provider.providerId}>{provider.providerLabel}</option>
+                                    <option value={provider.providerId} class="bg-dark-surface text-white">{provider.providerLabel}</option>
                                 {/each}
                             </select>
                         {/if}
