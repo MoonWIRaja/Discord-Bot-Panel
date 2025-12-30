@@ -3070,78 +3070,97 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                 // Get tool definitions
                 const tools = ToolRegistry.getToolDefinitions();
 
-                // Dynamic model selection for auto mode
+                // Dynamic multi-provider selection for auto mode
                 let selectedModel = model;
                 let detectedMode = 'chat';
-                const genericProviderId = (providerConfig.provider || providerId) as string;
+                let selectedProviderConfig = providerConfig;
+                let selectedApiKey = apiKey;
+                let genericProviderId = (providerConfig.provider || providerId) as string;
 
                 if (!model || model === 'auto' || model === '') {
                     // Detect intent from user message
                     detectedMode = AIService.detectIntent(message.content);
                     console.log(`[BotRuntime] Public chat - Detected intent: ${detectedMode}`);
 
-                    // Priority order for model selection:
-                    // 1. fetchedModels (validated from Studio) - filter by mode
-                    // 2. modelChat/modelCode/etc (new format individual properties)
-                    // 3. azureDeployment (for Azure providers)
-                    // 4. models.chat/models.code/etc (old format object)
-                    // 5. Default model for provider
+                    // MULTI-PROVIDER SCAN: Find best provider for this intent
+                    // Priority: Look for provider that has fetchedModels with this mode
+                    const modeKey = `mode${detectedMode.charAt(0).toUpperCase() + detectedMode.slice(1)}`; // e.g., modeChat, modeImage
 
-                    const fetchedModels = providerConfig.fetchedModels || [];
-                    const modeKey = `model${detectedMode.charAt(0).toUpperCase() + detectedMode.slice(1)}`; // e.g., modelChat, modelCode
+                    let foundProvider = false;
+                    for (const p of providers) {
+                        const pGenericId = (p.provider || p.id) as string;
+                        const fetchedModels = p.fetchedModels || [];
 
-                    // 1. Check fetchedModels first (highest priority - validated)
-                    if (Array.isArray(fetchedModels) && fetchedModels.length > 0) {
-                        const modeModel = fetchedModels.find((m: any) =>
-                            m.modes?.includes(detectedMode) || m.modes?.includes('chat')
-                        );
-                        if (modeModel) {
-                            selectedModel = modeModel.id || modeModel.name;
-                            console.log(`[BotRuntime] Using fetchedModel: ${selectedModel}`);
+                        // Check if this provider has mode enabled
+                        const hasModeEnabled = p[modeKey] === true || p[modeKey] === 'true';
+
+                        // Check if fetchedModels has model for this mode
+                        const modeModel = Array.isArray(fetchedModels) ? fetchedModels.find((m: any) =>
+                            m.modes?.includes(detectedMode)
+                        ) : null;
+
+                        // Check modelX property (e.g., modelImage, modelCode)
+                        const modelKey = `model${detectedMode.charAt(0).toUpperCase() + detectedMode.slice(1)}`;
+                        const hasModelProperty = !!p[modelKey];
+
+                        console.log(`[BotRuntime] Checking provider ${p.label || p.id} for ${detectedMode}: modeEnabled=${hasModeEnabled}, fetchedModel=${!!modeModel}, ${modelKey}=${hasModelProperty}`);
+
+                        if (modeModel || (hasModeEnabled && hasModelProperty)) {
+                            // Found a provider with this mode!
+                            selectedProviderConfig = p;
+                            selectedApiKey = p.apiKey;
+                            genericProviderId = pGenericId;
+
+                            if (modeModel) {
+                                selectedModel = modeModel.id || modeModel.name;
+                                console.log(`[BotRuntime] Selected provider: ${p.label || p.id} with fetchedModel: ${selectedModel}`);
+                            } else if (p[modelKey]) {
+                                selectedModel = p[modelKey];
+                                console.log(`[BotRuntime] Selected provider: ${p.label || p.id} with ${modelKey}: ${selectedModel}`);
+                            }
+
+                            foundProvider = true;
+                            break;
                         }
                     }
 
-                    // 2. Check new format (modelChat, modelCode, etc) if no fetchedModel found
-                    if (!selectedModel && providerConfig[modeKey]) {
-                        selectedModel = providerConfig[modeKey];
-                        console.log(`[BotRuntime] Using ${modeKey}: ${selectedModel}`);
+                    // If no specific mode provider found, fallback to first provider with chat capability
+                    if (!foundProvider) {
+                        console.log(`[BotRuntime] No provider found for ${detectedMode}, falling back to first chat-capable provider`);
+                        for (const p of providers) {
+                            const fetchedModels = p.fetchedModels || [];
+                            const chatModel = Array.isArray(fetchedModels) ? fetchedModels.find((m: any) =>
+                                m.modes?.includes('chat') || m.modes?.includes('code')
+                            ) : null;
+
+                            if (chatModel || p.modelChat || p.modeChat) {
+                                selectedProviderConfig = p;
+                                selectedApiKey = p.apiKey;
+                                genericProviderId = (p.provider || p.id) as string;
+                                selectedModel = chatModel?.id || chatModel?.name || p.modelChat || '';
+                                console.log(`[BotRuntime] Fallback to provider: ${p.label || p.id} with model: ${selectedModel}`);
+                                break;
+                            }
+                        }
                     }
 
-                    // 3. Fallback to modelChat if specific mode model not found
-                    if (!selectedModel && providerConfig.modelChat) {
-                        selectedModel = providerConfig.modelChat;
-                        console.log(`[BotRuntime] Fallback to modelChat: ${selectedModel}`);
-                    }
-
-                    // 4. For Azure, prefer azureDeployment over models object
-                    if (!selectedModel && genericProviderId === 'azure' && providerConfig.azureDeployment) {
-                        selectedModel = providerConfig.azureDeployment;
-                        console.log(`[BotRuntime] Using azureDeployment: ${selectedModel}`);
-                    }
-
-                    // 5. Old format (models.chat, models.code, etc) - LOW priority
-                    if (!selectedModel && providerConfig.models && providerConfig.models[detectedMode]) {
-                        selectedModel = providerConfig.models[detectedMode];
-                        console.log(`[BotRuntime] Using models.${detectedMode}: ${selectedModel}`);
-                    }
-
-                    // 6. Final fallback
+                    // Final fallback to original provider
                     if (!selectedModel) {
-                        selectedModel = AIService.getDefaultModel(genericProviderId);
-                        console.log(`[BotRuntime] Using default model: ${selectedModel}`);
+                        selectedModel = selectedProviderConfig.modelChat || selectedProviderConfig.azureDeployment || '';
+                        console.log(`[BotRuntime] Final fallback model: ${selectedModel}`);
                     }
 
-                    console.log(`[BotRuntime] Public chat - Auto-selected model: ${selectedModel} for intent: ${detectedMode}`);
+                    console.log(`[BotRuntime] Public chat - Provider: ${selectedProviderConfig.label || selectedProviderConfig.id}, Model: ${selectedModel}, Intent: ${detectedMode}`);
                 }
 
-                // Initial chat call
+                // Initial chat call - use the selected provider config
                 let result = await AIService.chat({
                     provider: genericProviderId as any,
-                    apiKey: apiKey,
+                    apiKey: selectedApiKey,
                     model: selectedModel,
                     mode: detectedMode as any,
-                    azureEndpoint: providerConfig.azureEndpoint || '',
-                    azureDeployment: providerConfig.azureDeployment || '',
+                    azureEndpoint: selectedProviderConfig.azureEndpoint || '',
+                    azureDeployment: selectedProviderConfig.azureDeployment || '',
                     tools: tools
                 }, messages);
 
