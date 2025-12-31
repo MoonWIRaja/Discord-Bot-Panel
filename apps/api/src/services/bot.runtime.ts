@@ -2816,16 +2816,19 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                         if (visionProvider) {
                             try {
                                 await message.react('🔍');
-                                console.log(`[BotRuntime] Analyzing reference image with ${visionProvider.id}...`);
+                                // Get generic provider type
+                                const genericVisionProvider = (visionProvider.provider || visionProvider.id) as string;
+                                console.log(`[BotRuntime] Analyzing reference image with ${genericVisionProvider} (${visionProvider.label || visionProvider.id})...`);
 
                                 // Get the vision model from provider config, or use default
-                                const visionModel = visionProvider.models?.vision ||
-                                    (visionProvider.id === 'gemini' ? 'gemini-2.0-flash' :
-                                        visionProvider.id === 'openai' ? 'gpt-4o' :
-                                            visionProvider.id === 'claude' ? 'claude-3-5-sonnet-20241022' : 'auto');
+                                const visionModel = visionProvider.modelVision || visionProvider.models?.vision ||
+                                    (genericVisionProvider === 'gemini' ? 'gemini-2.0-flash' :
+                                        genericVisionProvider === 'openai' ? 'gpt-4o' :
+                                            genericVisionProvider === 'claude' ? 'claude-3-5-sonnet-20241022' :
+                                                genericVisionProvider === 'azure' ? (visionProvider.fetchedModels?.[0]?.id || 'gpt-4o') : 'auto');
 
                                 imageDescription = await AIService.analyzeImage({
-                                    provider: visionProvider.id,
+                                    provider: genericVisionProvider, // Use generic type not unique ID
                                     apiKey: visionProvider.apiKey,
                                     imageUrl: attachment.url,
                                     prompt: "Describe this image for recreating it. Focus on: colors, shapes, text/letters, style, and composition. Be specific and detailed.",
@@ -2838,8 +2841,8 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                                 const estimatedVisionTokens = 1000 + Math.ceil(imageDescription.length / 4);
                                 await TokenUsageService.recordUsage(
                                     botId,
-                                    visionProvider.id,
-                                    visionProvider.name || visionProvider.id,
+                                    visionProvider.id, // Keep unique ID for usage tracking
+                                    visionProvider.label || visionProvider.id,
                                     estimatedVisionTokens,
                                     'vision',
                                     visionModel,
@@ -3224,12 +3227,13 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
 
                     // Call AI again with tool results
                     result = await AIService.chat({
-                        provider: providerId,
-                        apiKey: apiKey,
-                        model: model,
-                        mode: 'auto',
-                        azureEndpoint: providerConfig.azureEndpoint || '',
-                        azureDeployment: providerConfig.azureDeployment || '',
+                        provider: genericProviderId as any, // Use generic type not unique ID
+                        apiKey: selectedApiKey,
+                        model: selectedModel,
+                        mode: detectedMode as any,
+                        azureEndpoint: selectedProviderConfig.azureEndpoint || '',
+                        azureDeployment: selectedProviderConfig.azureDeployment || '',
+                        azureType: selectedProviderConfig.azureType || 'auto',
                         tools: tools
                     }, messages);
                 }
