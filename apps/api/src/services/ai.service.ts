@@ -324,19 +324,19 @@ export const PROVIDER_MODELS: Record<string, Record<string, string[]>> = {
         creative: ['gpt-5.2', 'gpt-5', 'gpt-4o', 'gpt-4-turbo']
     },
     gemini: {
-        // Dec 2025: Prioritize available models - gemini-2.5-flash works, gemini-3-pro often rate-limited
-        chat: ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-3-flash-preview', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.0-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-3-pro-preview'],
-        code: ['gemini-2.5-flash', 'gemini-3-flash-preview', 'gemini-2.0-flash-thinking-exp', 'gemini-1.5-pro', 'gemini-3-pro-preview'],
-        debug: ['gemini-2.5-flash', 'gemini-3-flash-preview', 'gemini-2.0-flash-thinking-exp', 'gemini-1.5-pro'],
+        // Jan 2026: Gemini 3 Pro (Nov 2025), Gemini 3 Flash (Dec 2025 - now default), Gemini 3 Deep Think
+        chat: ['gemini-3-flash', 'gemini-3-pro', 'gemini-3-deep-think', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-pro', 'gemini-1.5-flash'],
+        code: ['gemini-3-flash', 'gemini-3-pro', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash-thinking-exp', 'gemini-1.5-pro'],
+        debug: ['gemini-3-flash', 'gemini-3-pro', 'gemini-2.5-flash', 'gemini-2.0-flash-thinking-exp', 'gemini-1.5-pro'],
         image: ['imagen-3.0-generate-002', 'imagen-3.0-fast-generate-001', 'gemini-2.5-flash-image-preview'],
         video: ['veo-2', 'veo'],
         audio: ['gemini-2.5-flash-native-audio-preview', 'gemini-live-2.5-flash-native-audio', 'gemini-2.0-flash-exp'],
         music: [],
-        vision: ['gemini-2.5-flash', 'gemini-3-flash-preview', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
-        translate: ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash', 'gemini-1.5-flash'],
-        summarize: ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash', 'gemini-1.5-flash'],
-        research: ['gemini-2.5-flash', 'gemini-3-flash-preview', 'gemini-3-pro-preview'],
-        creative: ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash', 'gemini-1.5-pro']
+        vision: ['gemini-3-flash', 'gemini-3-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'],
+        translate: ['gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'],
+        summarize: ['gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'],
+        research: ['gemini-3-deep-think', 'gemini-3-pro', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'],
+        creative: ['gemini-3-pro', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro']
     },
     azure: {
         // Azure AI Foundry Dec 2025 - 11,262+ models available, comprehensive list
@@ -445,15 +445,15 @@ export const PROVIDER_MODELS: Record<string, Record<string, string[]>> = {
         creative: ['llama-3.3-70b-versatile', 'mixtral-8x7b-32768', 'meta-llama/llama-4-maverick-17b-128e-instruct']
     },
     mistral: {
-        // Latest Dec 2025: Mistral Large 3, Devstral 2, Mistral Medium 3.1, Voxtral, Magistral
+        // Jan 2026: Mistral Large 3 (Dec 2025), Codestral 25.01 (Jan 2025), Ministral 3B/8B/14B
         chat: ['mistral-large-3', 'mistral-medium-3.1', 'mistral-medium-3', 'mistral-small-3.2', 'mistral-small-3.1', 'ministral-3-14b', 'ministral-3-8b', 'ministral-3-3b', 'mistral-large-2411', 'mistral-large-latest', 'mistral-small-latest', 'open-mistral-nemo', 'mistral-7b'],
-        code: ['devstral-2-123b', 'devstral-small-2-24b', 'codestral-latest', 'codestral-mamba-latest', 'mistral-large-3'],
-        debug: ['devstral-2-123b', 'codestral-latest', 'mistral-large-3'],
+        code: ['codestral-25.01', 'devstral-2-123b', 'devstral-small-2-24b', 'codestral-latest', 'codestral-mamba-latest', 'mistral-large-3'],
+        debug: ['codestral-25.01', 'devstral-2-123b', 'codestral-latest', 'mistral-large-3'],
         image: [],
         video: [],
         audio: ['voxtral-mini-transcribe', 'voxtral-mini', 'voxtral-small'],
         music: [],
-        vision: ['pixtral-large-2411', 'pixtral-large-latest', 'pixtral-12b-2409'],
+        vision: ['pixtral-large-2411', 'pixtral-large-latest', 'pixtral-12b-2409', 'ministral-3-14b', 'ministral-3-8b'],
         translate: ['mistral-large-3', 'mistral-small-latest'],
         summarize: ['mistral-small-latest', 'mistral-large-3'],
         research: ['magistral-medium', 'magistral-small', 'mistral-large-3'],
@@ -475,8 +475,8 @@ export const PROVIDER_MODELS: Record<string, Record<string, string[]>> = {
         creative: ['command-a-03-2025']
     },
     perplexity: {
-        // Latest Dec 2025: Sonar, Sonar Pro, R1-1776, Search API
-        chat: ['sonar', 'sonar-pro', 'sonar-pro-reasoning', 'r1-1776', 'llama-3.1-sonar-large-128k-online', 'llama-3.1-sonar-small-128k-online'],
+        // Jan 2026: Sonar Deep Research, Sonar Reasoning Pro, Sonar Pro
+        chat: ['sonar-deep-research', 'sonar-reasoning-pro', 'sonar-reasoning', 'sonar-pro', 'sonar', 'r1-1776', 'llama-3.1-sonar-large-128k-online', 'llama-3.1-sonar-small-128k-online'],
         code: ['sonar-pro', 'sonar', 'llama-3.1-sonar-large-128k-chat'],
         debug: ['sonar-pro', 'sonar'],
         image: [],
@@ -486,7 +486,7 @@ export const PROVIDER_MODELS: Record<string, Record<string, string[]>> = {
         vision: ['sonar-pro'],
         translate: ['sonar', 'llama-3.1-sonar-large-128k-online'],
         summarize: ['sonar', 'llama-3.1-sonar-small-128k-online'],
-        research: ['sonar-pro-reasoning', 'sonar-pro', 'r1-1776'],
+        research: ['sonar-deep-research', 'sonar-reasoning-pro', 'sonar-reasoning', 'sonar-pro', 'r1-1776'],
         creative: ['sonar-pro', 'sonar']
     },
     deepseek: {
@@ -505,32 +505,34 @@ export const PROVIDER_MODELS: Record<string, Record<string, string[]>> = {
         creative: ['deepseek-chat', 'deepseek-v3.2']
     },
     xai: {
-        chat: ['grok-2', 'grok-2-mini', 'grok-beta', 'grok-2-1212'],
-        code: ['grok-2'],
-        debug: ['grok-2'],
-        image: [],
+        // Jan 2026: Grok 4.1 (Nov 2025), Grok 4.1 Fast, Grok 4 (July 2025), Grok 3 (Feb 2025)
+        chat: ['grok-4.1', 'grok-4.1-fast', 'grok-4', 'grok-4-heavy', 'grok-3', 'grok-3-mini', 'grok-2.5', 'grok-2', 'grok-2-mini', 'grok-beta'],
+        code: ['grok-4.1', 'grok-4', 'grok-3', 'grok-2'],
+        debug: ['grok-4.1', 'grok-4', 'grok-3', 'grok-2'],
+        image: ['aurora'],  // xAI image model
         video: [],
         audio: [],
         music: [],
-        vision: ['grok-2-vision-1212'],
-        translate: ['grok-2'],
-        summarize: ['grok-2-mini'],
-        research: ['grok-2'],
-        creative: ['grok-2']
+        vision: ['grok-4.1', 'grok-4', 'grok-3', 'grok-2-vision-1212'],
+        translate: ['grok-4.1-fast', 'grok-4', 'grok-2'],
+        summarize: ['grok-4.1-fast', 'grok-3-mini', 'grok-2-mini'],
+        research: ['grok-4.1', 'grok-4-heavy', 'grok-3', 'grok-2'],
+        creative: ['grok-4.1', 'grok-4', 'grok-3', 'grok-2']
     },
     together: {
-        chat: ['meta-llama/Llama-3.3-70B-Instruct-Turbo', 'Qwen/Qwen2.5-72B-Instruct-Turbo', 'mistralai/Mixtral-8x22B-Instruct-v0.1'],
-        code: ['Qwen/Qwen2.5-Coder-32B-Instruct', 'codellama/CodeLlama-70b-Instruct-hf'],
-        debug: ['meta-llama/Llama-3.3-70B-Instruct-Turbo'],
+        // Jan 2026: Llama 4 Scout/Maverick, Qwen 3 series
+        chat: ['meta-llama/Llama-4-Maverick-17B-128E-Instruct', 'meta-llama/Llama-4-Scout-17B-16E-Instruct', 'Qwen/Qwen3-235B-Instruct', 'Qwen/Qwen3-Coder-480B', 'meta-llama/Llama-3.3-70B-Instruct-Turbo', 'Qwen/Qwen2.5-72B-Instruct-Turbo', 'mistralai/Mixtral-8x22B-Instruct-v0.1'],
+        code: ['Qwen/Qwen3-Coder-480B', 'Qwen/Qwen2.5-Coder-32B-Instruct', 'codellama/CodeLlama-70b-Instruct-hf'],
+        debug: ['Qwen/Qwen3-Coder-480B', 'meta-llama/Llama-4-Maverick-17B-128E-Instruct', 'meta-llama/Llama-3.3-70B-Instruct-Turbo'],
         image: ['black-forest-labs/FLUX.1-schnell-Free', 'stabilityai/stable-diffusion-xl-base-1.0'],
         video: [],
         audio: [],
         music: ['meta/musicgen-large'],
-        vision: ['meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo'],
-        translate: ['meta-llama/Llama-3.3-70B-Instruct-Turbo'],
-        summarize: ['mistralai/Mixtral-8x7B-Instruct-v0.1'],
-        research: ['meta-llama/Llama-3.3-70B-Instruct-Turbo'],
-        creative: ['meta-llama/Llama-3.3-70B-Instruct-Turbo']
+        vision: ['meta-llama/Llama-4-Maverick-17B-128E-Instruct', 'Qwen/Qwen2.5-VL-72B-Instruct', 'meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo'],
+        translate: ['meta-llama/Llama-4-Maverick-17B-128E-Instruct', 'meta-llama/Llama-3.3-70B-Instruct-Turbo'],
+        summarize: ['Qwen/Qwen2.5-7B-Turbo', 'mistralai/Mixtral-8x7B-Instruct-v0.1'],
+        research: ['Qwen/Qwen3-235B-Thinking', 'meta-llama/Llama-4-Maverick-17B-128E-Instruct', 'meta-llama/Llama-3.3-70B-Instruct-Turbo'],
+        creative: ['meta-llama/Llama-4-Maverick-17B-128E-Instruct', 'meta-llama/Llama-3.3-70B-Instruct-Turbo']
     },
     fireworks: {
         chat: ['accounts/fireworks/models/llama-v3p3-70b-instruct', 'accounts/fireworks/models/mixtral-8x22b-instruct'],
@@ -652,7 +654,7 @@ export const PROVIDER_MODELS: Record<string, Record<string, string[]>> = {
 
 export const DEFAULT_MODELS: Record<string, string> = {
     openai: 'gpt-4o',
-    gemini: 'gemini-2.5-flash',  // Changed from gemini-3-pro-preview (often rate-limited)
+    gemini: 'gemini-3-flash',  // Jan 2026: Gemini 3 Flash is now default
     azure: 'gpt-4o',
     claude: 'claude-opus-4.5-20251124',
     groq: 'meta-llama/llama-4-maverick-17b-128e-instruct',
@@ -660,8 +662,8 @@ export const DEFAULT_MODELS: Record<string, string> = {
     cohere: 'command-a-03-2025',
     perplexity: 'sonar-pro',
     deepseek: 'deepseek-v3.2',
-    xai: 'grok-2',
-    together: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
+    xai: 'grok-4.1',  // Updated to Grok 4.1 (Nov 2025)
+    together: 'meta-llama/Llama-4-Maverick-17B-128E-Instruct',  // Updated to Llama 4
     fireworks: 'accounts/fireworks/models/llama-v3p3-70b-instruct',
     replicate: 'meta/llama-3.1-405b-instruct',
     ai21: 'jamba-1.5-large',
