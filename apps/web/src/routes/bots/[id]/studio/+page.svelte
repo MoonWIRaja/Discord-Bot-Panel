@@ -52,6 +52,7 @@
     let hasChanges = $state(false);
     let isLoaded = $state(false);
     let showNodePalette = $state(false); // Mobile toggle for node palette
+    let showProperties = $state(false); // Mobile toggle for properties panel
 
     // Auth session
     const session = useSession();
@@ -1014,23 +1015,23 @@
 
 <div class="h-screen flex flex-col bg-dark-base">
     <!-- Header -->
-    <header class="h-14 bg-dark-surface border-b border-dark-border flex items-center justify-between px-4 shrink-0">
-        <div class="flex items-center gap-3">
-            <button onclick={goBack} class="p-2 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors">
-                <span class="material-symbols-outlined">arrow_back</span>
+    <header class="h-14 bg-dark-surface border-b border-dark-border flex items-center justify-between px-2 sm:px-4 shrink-0">
+        <div class="flex items-center gap-1 sm:gap-3 min-w-0">
+            <button onclick={goBack} class="p-1.5 sm:p-2 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors shrink-0">
+                <span class="material-symbols-outlined text-[20px] sm:text-[24px]">arrow_back</span>
             </button>
-            <div class="h-6 w-px bg-dark-border"></div>
-            <h1 class="text-white font-bold text-lg flex items-center gap-2">
-                {botName}
-                <span class="text-gray-500">/</span>
+            <div class="h-6 w-px bg-dark-border hidden sm:block"></div>
+            <h1 class="text-white font-bold text-sm sm:text-lg flex items-center gap-1 sm:gap-2 min-w-0">
+                <span class="hidden md:inline truncate max-w-[100px]">{botName}</span>
+                <span class="text-gray-500 hidden md:inline">/</span>
                 <!-- Custom Flow Dropdown -->
                 <div class="relative">
                     <button 
                         onclick={() => showFlowDropdown = !showFlowDropdown}
-                        class="flex items-center gap-2 bg-dark-base border border-dark-border rounded px-3 py-1.5 text-sm text-white hover:bg-dark-surface transition-colors cursor-pointer"
+                        class="flex items-center gap-1 sm:gap-2 bg-dark-base border border-dark-border rounded px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm text-white hover:bg-dark-surface transition-colors cursor-pointer max-w-[120px] sm:max-w-none"
                     >
-                        <span>{flowName || 'New Flow'}</span>
-                        <span class="material-symbols-outlined text-[16px] text-gray-400">expand_more</span>
+                        <span class="truncate">{flowName || 'New Flow'}</span>
+                        <span class="material-symbols-outlined text-[14px] sm:text-[16px] text-gray-400 shrink-0">expand_more</span>
                     </button>
                     
                     {#if showFlowDropdown}
@@ -1346,12 +1347,40 @@
             {/if}
         </div>
 
+        <!-- Mobile toggle button for properties panel -->
+        <button 
+            onclick={() => showProperties = !showProperties}
+            class="md:hidden fixed bottom-4 right-4 z-50 size-12 rounded-full bg-amber-500 shadow-lg flex items-center justify-center text-white"
+            aria-label="Toggle properties"
+        >
+            <span class="material-symbols-outlined text-[24px]">{showProperties ? 'close' : 'tune'}</span>
+        </button>
+
+        <!-- Mobile backdrop for properties -->
+        {#if showProperties}
+            <button 
+                onclick={() => showProperties = false}
+                class="md:hidden fixed inset-0 bg-black/50 z-30"
+                aria-label="Close properties"
+            ></button>
+        {/if}
+
         <!-- Properties Panel -->
-        <aside class="w-72 bg-dark-surface border-l border-dark-border p-4 shrink-0 overflow-y-auto">
-            <h3 class="text-white font-bold mb-4 flex items-center gap-2">
-                <span class="material-symbols-outlined text-[20px]">tune</span>
-                Properties
-            </h3>
+        <aside class="
+            w-72 bg-dark-surface border-l border-dark-border p-4 shrink-0 overflow-y-auto z-40
+            fixed md:relative h-full right-0 top-0
+            transform md:transform-none transition-transform duration-300
+            {showProperties ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
+        ">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-white font-bold flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[20px]">tune</span>
+                    Properties
+                </h3>
+                <button onclick={() => showProperties = false} class="md:hidden p-1 hover:bg-white/5 rounded text-gray-400">
+                    <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+            </div>
             
             {#if selectedNode}
                 <div class="space-y-4">
