@@ -923,7 +923,9 @@ export class AIService {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error?.message || `API error: ${response.status}`);
+            const errorMsg = errorData.error?.message || errorData.message || `API error: ${response.status}`;
+            console.error(`[AIService] ${provider} API error:`, JSON.stringify(errorData, null, 2));
+            throw new Error(`${provider}: ${errorMsg}`);
         }
 
         const data = await response.json();
