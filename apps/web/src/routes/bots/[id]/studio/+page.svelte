@@ -51,6 +51,7 @@
     let lastSaved = $state<Date | null>(null);
     let hasChanges = $state(false);
     let isLoaded = $state(false);
+    let showNodePalette = $state(false); // Mobile toggle for node palette
 
     // Auth session
     const session = useSession();
@@ -1116,31 +1117,54 @@
             {/if}
             
             {#if lastSaved}
-                <span class="text-xs text-gray-500">Saved {lastSaved.toLocaleTimeString()}</span>
+                <span class="text-xs text-gray-500 hidden sm:inline">Saved {lastSaved.toLocaleTimeString()}</span>
             {/if}
-            <button onclick={promptSave} disabled={saving} class="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg font-bold text-sm disabled:opacity-50 transition-colors">
+            <button onclick={promptSave} disabled={saving} class="flex items-center gap-2 px-3 sm:px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg font-bold text-sm disabled:opacity-50 transition-colors" title="Save Flow">
                 {#if saving}
                     <span class="size-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                 {:else}
                     <span class="material-symbols-outlined text-[18px]">save</span>
                 {/if}
-                Save Flow
+                <span class="hidden sm:inline">Save Flow</span>
             </button>
-            <button onclick={exportFlow} class="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-sm transition-colors">
+            <button onclick={exportFlow} class="flex items-center gap-2 px-3 sm:px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-sm transition-colors" title="Export">
                 <span class="material-symbols-outlined text-[18px]">download</span>
-                Export
+                <span class="hidden sm:inline">Export</span>
             </button>
-            <a href="/bots/{id}/panel" class="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm transition-colors">
+            <a href="/bots/{id}/panel" class="flex items-center gap-2 px-3 sm:px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm transition-colors" title="Panel">
                 <span class="material-symbols-outlined text-[18px]">terminal</span>
-                Panel
+                <span class="hidden sm:inline">Panel</span>
             </a>
         </div>
     </header>
 
     <!-- Main Content -->
-    <div class="flex-1 flex overflow-hidden">
+    <div class="flex-1 flex overflow-hidden relative">
+        <!-- Mobile toggle button for node palette -->
+        <button 
+            onclick={() => showNodePalette = !showNodePalette}
+            class="md:hidden fixed bottom-4 left-4 z-50 size-12 rounded-full bg-primary shadow-lg flex items-center justify-center text-white"
+            aria-label="Toggle nodes"
+        >
+            <span class="material-symbols-outlined text-[24px]">{showNodePalette ? 'close' : 'widgets'}</span>
+        </button>
+
+        <!-- Mobile backdrop -->
+        {#if showNodePalette}
+            <button 
+                onclick={() => showNodePalette = false}
+                class="md:hidden fixed inset-0 bg-black/50 z-30"
+                aria-label="Close palette"
+            ></button>
+        {/if}
+
         <!-- Sidebar - Node Palette -->
-        <aside class="w-56 bg-dark-surface border-r border-dark-border overflow-y-auto shrink-0">
+        <aside class="
+            w-56 bg-dark-surface border-r border-dark-border overflow-y-auto shrink-0 z-40
+            fixed md:relative h-full
+            transform md:transform-none transition-transform duration-300
+            {showNodePalette ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        ">
             <div class="p-4 space-y-6">
                 <p class="text-xs text-gray-500 italic">Drag nodes to canvas</p>
                 
