@@ -1749,17 +1749,33 @@
                                     <option value="openrouter">🌐 OpenRouter</option>
                                 </select>
                             </div>
-                            <div>
-                                <label for="ai-provider-apikey" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">API Key</label>
-                                <input 
-                                    id="ai-provider-apikey"
-                                    type="password"
-                                    value={selectedNode.data.apiKey || ''}
-                                    oninput={(e) => updateNodeData('apiKey', e.currentTarget.value)}
-                                    placeholder="Enter API key"
-                                    class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm font-mono"
-                                />
-                            </div>
+                            {#if selectedNode.data.provider === 'ollama'}
+                                <!-- Ollama uses host URL, not API key -->
+                                <div>
+                                    <label for="ai-ollama-host" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Ollama Host</label>
+                                    <input 
+                                        id="ai-ollama-host"
+                                        type="text"
+                                        value={selectedNode.data.ollamaHost || 'http://localhost:11434'}
+                                        oninput={(e) => updateNodeData('ollamaHost', e.currentTarget.value)}
+                                        placeholder="http://localhost:11434"
+                                        class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm"
+                                    />
+                                    <p class="text-xs text-gray-500 mt-1">🦙 Ollama runs locally, no API key needed</p>
+                                </div>
+                            {:else}
+                                <div>
+                                    <label for="ai-provider-apikey" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">API Key</label>
+                                    <input 
+                                        id="ai-provider-apikey"
+                                        type="password"
+                                        value={selectedNode.data.apiKey || ''}
+                                        oninput={(e) => updateNodeData('apiKey', e.currentTarget.value)}
+                                        placeholder="Enter API key"
+                                        class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm font-mono"
+                                    />
+                                </div>
+                            {/if}
                             {#if selectedNode.data.provider === 'azure'}
                                 <div>
                                     <label for="ai-azure-endpoint" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Azure Endpoint</label>
@@ -1965,17 +1981,33 @@
                                     <option value="openrouter">🌐 OpenRouter</option>
                                 </select>
                             </div>
-                            <div>
-                                <label for="ai-mode-apikey" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">API Key</label>
-                                <input 
-                                    id="ai-mode-apikey"
-                                    type="password"
-                                    value={selectedNode.data.apiKey || ''}
-                                    oninput={(e) => updateNodeData('apiKey', e.currentTarget.value)}
-                                    placeholder="Enter API key"
-                                    class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm font-mono"
-                                />
-                            </div>
+                            {#if selectedNode.data.provider === 'ollama'}
+                                <!-- Ollama uses host URL, not API key -->
+                                <div>
+                                    <label for="ai-mode-ollama-host" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Ollama Host</label>
+                                    <input 
+                                        id="ai-mode-ollama-host"
+                                        type="text"
+                                        value={selectedNode.data.ollamaHost || 'http://localhost:11434'}
+                                        oninput={(e) => updateNodeData('ollamaHost', e.currentTarget.value)}
+                                        placeholder="http://localhost:11434"
+                                        class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm"
+                                    />
+                                    <p class="text-xs text-gray-500 mt-1">🦙 Ollama runs locally, no API key needed</p>
+                                </div>
+                            {:else}
+                                <div>
+                                    <label for="ai-mode-apikey" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">API Key</label>
+                                    <input 
+                                        id="ai-mode-apikey"
+                                        type="password"
+                                        value={selectedNode.data.apiKey || ''}
+                                        oninput={(e) => updateNodeData('apiKey', e.currentTarget.value)}
+                                        placeholder="Enter API key"
+                                        class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm font-mono"
+                                    />
+                                </div>
+                            {/if}
                             <div>
                                 <label for="ai-mode-select" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Mode</label>
                                 <select 
