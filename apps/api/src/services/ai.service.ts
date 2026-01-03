@@ -190,6 +190,22 @@ export const AI_PROVIDERS = {
         supportsImage: false,
         supportsVideo: false,
         supportsAudio: false
+    },
+    zanai: {
+        id: 'zanai',
+        name: 'Z.AI (智谱)',
+        endpoint: 'https://api.z.ai/api/paas/v4',
+        supportsImage: true,
+        supportsVideo: false,
+        supportsAudio: false
+    },
+    openrouter: {
+        id: 'openrouter',
+        name: 'OpenRouter',
+        endpoint: 'https://openrouter.ai/api/v1',
+        supportsImage: true,
+        supportsVideo: false,
+        supportsAudio: false
     }
 };
 
@@ -585,6 +601,50 @@ export const PROVIDER_MODELS: Record<string, Record<string, string[]>> = {
         summarize: ['llama3.3', 'mistral', 'phi3'],
         research: ['llama3.3', 'qwen2.5'],
         creative: ['llama3.3', 'mistral']
+    },
+    zanai: {
+        // Z.AI (智谱) models - GLM series
+        chat: ['glm-4-plus', 'glm-4-0520', 'glm-4-air', 'glm-4-airx', 'glm-4-long', 'glm-4-flashx', 'glm-4-flash', 'glm-4.7', 'glm-4'],
+        code: ['codegeex-4', 'glm-4-plus', 'glm-4-0520'],
+        debug: ['glm-4-plus', 'glm-4-0520', 'glm-4'],
+        image: ['cogview-3-plus', 'cogview-3'],
+        video: ['cogvideox'],
+        audio: [],
+        music: [],
+        vision: ['glm-4v-plus', 'glm-4v', 'glm-4v-flash'],
+        translate: ['glm-4-flash', 'glm-4'],
+        summarize: ['glm-4-flash', 'glm-4-air'],
+        research: ['glm-4-plus', 'glm-4-long'],
+        creative: ['glm-4-plus', 'glm-4']
+    },
+    openrouter: {
+        // OpenRouter - aggregates many providers, popular models
+        chat: [
+            'openai/gpt-4o', 'openai/gpt-4-turbo', 'openai/gpt-3.5-turbo',
+            'anthropic/claude-3.5-sonnet', 'anthropic/claude-3-opus', 'anthropic/claude-3-haiku',
+            'google/gemini-pro-1.5', 'google/gemini-flash-1.5',
+            'meta-llama/llama-3.1-405b-instruct', 'meta-llama/llama-3.1-70b-instruct',
+            'mistralai/mistral-large', 'mistralai/mixtral-8x22b-instruct',
+            'deepseek/deepseek-chat', 'deepseek/deepseek-coder',
+            'qwen/qwen-2.5-72b-instruct'
+        ],
+        code: [
+            'deepseek/deepseek-coder', 'openai/gpt-4o', 'anthropic/claude-3.5-sonnet',
+            'qwen/qwen-2.5-coder-32b-instruct', 'meta-llama/codellama-70b-instruct'
+        ],
+        debug: ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'deepseek/deepseek-coder'],
+        image: ['black-forest-labs/flux-1.1-pro', 'stability-ai/sdxl', 'openai/dall-e-3'],
+        video: [],
+        audio: [],
+        music: [],
+        vision: [
+            'openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'google/gemini-pro-1.5-vision',
+            'meta-llama/llama-3.2-90b-vision-instruct'
+        ],
+        translate: ['openai/gpt-4o', 'google/gemini-flash-1.5', 'meta-llama/llama-3.1-70b-instruct'],
+        summarize: ['openai/gpt-4o-mini', 'anthropic/claude-3-haiku', 'google/gemini-flash-1.5'],
+        research: ['openai/gpt-4o', 'anthropic/claude-3-opus', 'perplexity/sonar-pro'],
+        creative: ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'meta-llama/llama-3.1-405b-instruct']
     }
 };
 
@@ -606,7 +666,9 @@ export const DEFAULT_MODELS: Record<string, string> = {
     replicate: 'meta/llama-3.1-405b-instruct',
     ai21: 'jamba-1.5-large',
     huggingface: 'meta-llama/Llama-3.3-70B-Instruct',
-    ollama: 'llama3.3'
+    ollama: 'llama3.3',
+    zanai: 'glm-4-plus',
+    openrouter: 'openai/gpt-4o'
 };
 
 // ==================== AI SERVICE CLASS ====================
@@ -778,6 +840,8 @@ export class AIService {
                 case 'deepseek':
                 case 'xai':
                 case 'mistral':
+                case 'zanai':
+                case 'openrouter':
                     return await this.chatOpenAICompatible(provider, apiKey, model || DEFAULT_MODELS[provider], allMessages, config.tools);
                 case 'azure':
                     return await this.chatAzure(config, allMessages);
@@ -821,7 +885,9 @@ export class AIService {
             perplexity: 'https://api.perplexity.ai/chat/completions',
             deepseek: 'https://api.deepseek.com/v1/chat/completions',
             xai: 'https://api.x.ai/v1/chat/completions',
-            mistral: 'https://api.mistral.ai/v1/chat/completions'
+            mistral: 'https://api.mistral.ai/v1/chat/completions',
+            zanai: 'https://api.z.ai/api/paas/v4/chat/completions',
+            openrouter: 'https://openrouter.ai/api/v1/chat/completions'
         };
 
         const response = await fetch(endpoints[provider], {

@@ -36,7 +36,9 @@
         replicate: 'Replicate',
         ai21: 'AI21 Labs',
         huggingface: 'HuggingFace',
-        ollama: 'Ollama'
+        ollama: 'Ollama',
+        zanai: 'Z.AI (智谱)',
+        openrouter: 'OpenRouter'
     };
 
     let modeInfo = $derived(data.mode ? modeNames[data.mode] : null);

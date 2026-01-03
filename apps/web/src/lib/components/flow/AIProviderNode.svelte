@@ -27,7 +27,9 @@
         replicate: 'Replicate',
         ai21: 'AI21 Labs',
         huggingface: 'HuggingFace',
-        ollama: 'Ollama'
+        ollama: 'Ollama',
+        zanai: 'Z.AI (智谱)',
+        openrouter: 'OpenRouter'
     };
 
     let providerName = $derived(data.provider ? (providerNames[data.provider] || data.provider) : 'Not configured');
