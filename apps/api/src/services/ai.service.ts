@@ -894,24 +894,41 @@ export class AIService {
             openrouter: 'https://openrouter.ai/api/v1/chat/completions'
         };
 
+        // OpenRouter supports multi-model fallback with comma-separated models
+        // e.g., "z-ai/glm-4.5-air:free, google/gemini-2.0-flash-exp:free"
+        const isMultiModel = provider === 'openrouter' && model.includes(',');
+        const modelList = isMultiModel
+            ? model.split(',').map(m => m.trim())
+            : undefined;
+
+        const requestBody: any = {
+            messages: messages.map(m => ({
+                role: m.role,
+                content: m.content,
+                tool_calls: m.tool_calls,
+                tool_call_id: m.tool_call_id,
+                name: m.name
+            })),
+            max_tokens: 4096,
+            tools: tools && tools.length > 0 ? tools : undefined
+        };
+
+        // OpenRouter multi-model fallback
+        if (isMultiModel && modelList) {
+            requestBody.models = modelList;
+            requestBody.route = 'fallback';
+            console.log(`[AIService] OpenRouter multi-model fallback: ${modelList.join(' → ')}`);
+        } else {
+            requestBody.model = model;
+        }
+
         const response = await fetch(endpoints[provider], {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`
             },
-            body: JSON.stringify({
-                model,
-                messages: messages.map(m => ({ 
-                    role: m.role, 
-                    content: m.content, 
-                    tool_calls: m.tool_calls,
-                    tool_call_id: m.tool_call_id,
-                    name: m.name
-                })),
-                max_tokens: 4096,
-                tools: tools && tools.length > 0 ? tools : undefined
-            })
+            body: JSON.stringify(requestBody)
         });
         
         // DEBUG: Log if tools are being sent
