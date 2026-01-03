@@ -85,25 +85,25 @@
     }
 </script>
 
-<div class="flex flex-col gap-6">
+<div class="flex flex-col gap-4 sm:gap-6">
     <!-- Header -->
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-white">User Management</h1>
-            <p class="text-gray-500">Manage all user accounts and permissions</p>
+            <h1 class="text-xl sm:text-2xl font-bold text-white">User Management</h1>
+            <p class="text-gray-500 text-sm sm:text-base">Manage all user accounts and permissions</p>
         </div>
-        <div class="flex items-center gap-3">
-            <div class="relative">
-                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-[20px]">search</span>
+        <div class="flex items-center gap-2 sm:gap-3">
+            <div class="relative flex-1 sm:flex-initial">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-[18px] sm:text-[20px]">search</span>
                 <input 
                     type="text" 
                     bind:value={search}
                     onkeydown={(e) => e.key === 'Enter' && handleSearch()}
                     placeholder="Search users..." 
-                    class="pl-10 pr-4 py-2 bg-dark-card border border-dark-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+                    class="w-full sm:w-auto pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 bg-dark-card border border-dark-border rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500"
                 />
             </div>
-            <button onclick={handleSearch} class="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors">
+            <button onclick={handleSearch} class="px-3 sm:px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors text-sm shrink-0">
                 Search
             </button>
         </div>
@@ -127,14 +127,15 @@
     
     <!-- Users Table -->
     <div class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
-        <table class="w-full">
+        <div class="overflow-x-auto">
+        <table class="w-full min-w-[500px]">
             <thead class="bg-dark-surface border-b border-dark-border">
                 <tr>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">User</th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Plan</th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Joined</th>
-                    <th class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th class="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">User</th>
+                    <th class="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
+                    <th class="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Plan</th>
+                    <th class="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Joined</th>
+                    <th class="px-4 sm:px-6 py-3 sm:py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-dark-border">
@@ -181,7 +182,7 @@
                                     {getPlanName(user.plan)}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 text-gray-400 text-sm">
+                            <td class="px-4 sm:px-6 py-3 sm:py-4 text-gray-400 text-sm hidden sm:table-cell">
                                 {new Date(user.createdAt).toLocaleDateString()}
                             </td>
                             <td class="px-6 py-4 text-right">
@@ -197,6 +198,7 @@
                 {/if}
             </tbody>
         </table>
+        </div>
         
         <!-- Pagination -->
         {#if pagination.pages > 1}

@@ -1095,13 +1095,13 @@
                 <span class="text-xs text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded">Unsaved changes</span>
             {/if}
         </div>
-        <div class="flex items-center gap-3">
-            <!-- Remote Users Avatars -->
+        <div class="flex items-center gap-1.5 sm:gap-3">
+            <!-- Remote Users Avatars - hidden on mobile -->
             {#if remoteUsers.length > 0}
-                <div class="flex items-center gap-1 mr-2">
+                <div class="hidden sm:flex items-center gap-1 mr-2">
                     {#each remoteUsers as remote}
                         <div 
-                            class="size-8 rounded-full border-2 flex items-center justify-center text-xs font-bold text-white"
+                            class="size-7 sm:size-8 rounded-full border-2 flex items-center justify-center text-xs font-bold text-white"
                             style="border-color: {remote.user.color}; background: {remote.user.color}20;"
                             title="{remote.user.name}"
                         >
@@ -1114,7 +1114,7 @@
                     {/each}
                     <span class="text-xs text-gray-500 ml-1">{remoteUsers.length + 1} online</span>
                 </div>
-                <div class="h-6 w-px bg-dark-border"></div>
+                <div class="h-6 w-px bg-dark-border hidden sm:block"></div>
             {/if}
             
             {#if lastSaved}

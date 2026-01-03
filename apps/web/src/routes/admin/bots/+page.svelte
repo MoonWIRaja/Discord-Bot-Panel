@@ -46,11 +46,11 @@
     }
 </script>
 
-<div class="flex flex-col gap-6">
+<div class="flex flex-col gap-4 sm:gap-6">
     <div class="flex items-center justify-between">
         <div>
-            <h1 class="text-2xl font-bold text-white">All Bots</h1>
-            <p class="text-gray-500">Monitor and manage all bots in the system</p>
+            <h1 class="text-xl sm:text-2xl font-bold text-white">All Bots</h1>
+            <p class="text-gray-500 text-sm sm:text-base">Monitor and manage all bots in the system</p>
         </div>
     </div>
     
@@ -72,14 +72,15 @@
     
     <!-- Bots Table -->
     <div class="bg-dark-card rounded-xl border border-dark-border overflow-hidden">
-        <table class="w-full">
+        <div class="overflow-x-auto">
+        <table class="w-full min-w-[500px]">
             <thead class="bg-dark-surface border-b border-dark-border">
                 <tr>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">Bot</th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">Owner</th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
-                    <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase">Created</th>
-                    <th class="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase">Actions</th>
+                    <th class="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase">Bot</th>
+                    <th class="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase">Owner</th>
+                    <th class="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
+                    <th class="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase hidden sm:table-cell">Created</th>
+                    <th class="px-4 sm:px-6 py-3 sm:py-4 text-right text-xs font-bold text-gray-500 uppercase">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-dark-border">
@@ -126,7 +127,7 @@
                                     {item.bot?.status || 'offline'}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 text-gray-400 text-sm">
+                            <td class="px-4 sm:px-6 py-3 sm:py-4 text-gray-400 text-sm hidden sm:table-cell">
                                 {item.bot?.createdAt ? new Date(item.bot.createdAt).toLocaleDateString() : '-'}
                             </td>
                             <td class="px-6 py-4 text-right">
@@ -139,5 +140,6 @@
                 {/if}
             </tbody>
         </table>
+        </div>
     </div>
 </div>
