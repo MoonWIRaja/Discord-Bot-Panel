@@ -620,7 +620,7 @@ export const PROVIDER_MODELS: Record<string, Record<string, string[]>> = {
         creative: ['glm-4.5', 'glm-4-plus', 'glm-4']
     },
     openrouter: {
-        // OpenRouter - aggregates many providers, popular models
+        // OpenRouter - aggregates many providers, use provider/model format
         chat: [
             'openai/gpt-4o', 'openai/gpt-4-turbo', 'openai/gpt-3.5-turbo',
             'anthropic/claude-3.5-sonnet', 'anthropic/claude-3-opus', 'anthropic/claude-3-haiku',
@@ -628,25 +628,27 @@ export const PROVIDER_MODELS: Record<string, Record<string, string[]>> = {
             'meta-llama/llama-3.1-405b-instruct', 'meta-llama/llama-3.1-70b-instruct',
             'mistralai/mistral-large', 'mistralai/mixtral-8x22b-instruct',
             'deepseek/deepseek-chat', 'deepseek/deepseek-coder',
-            'qwen/qwen-2.5-72b-instruct'
+            'qwen/qwen-2.5-72b-instruct',
+            'zhipu/glm-4.5', 'zhipu/glm-4.5-air', 'zhipu/glm-4-plus', 'zhipu/glm-4'  // Z.AI via OpenRouter
         ],
         code: [
             'deepseek/deepseek-coder', 'openai/gpt-4o', 'anthropic/claude-3.5-sonnet',
-            'qwen/qwen-2.5-coder-32b-instruct', 'meta-llama/codellama-70b-instruct'
+            'qwen/qwen-2.5-coder-32b-instruct', 'meta-llama/codellama-70b-instruct',
+            'zhipu/codegeex-4'
         ],
-        debug: ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'deepseek/deepseek-coder'],
+        debug: ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'deepseek/deepseek-coder', 'zhipu/glm-4-plus'],
         image: ['black-forest-labs/flux-1.1-pro', 'stability-ai/sdxl', 'openai/dall-e-3'],
         video: [],
         audio: [],
         music: [],
         vision: [
             'openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'google/gemini-pro-1.5-vision',
-            'meta-llama/llama-3.2-90b-vision-instruct'
+            'meta-llama/llama-3.2-90b-vision-instruct', 'zhipu/glm-4v-plus'
         ],
-        translate: ['openai/gpt-4o', 'google/gemini-flash-1.5', 'meta-llama/llama-3.1-70b-instruct'],
-        summarize: ['openai/gpt-4o-mini', 'anthropic/claude-3-haiku', 'google/gemini-flash-1.5'],
-        research: ['openai/gpt-4o', 'anthropic/claude-3-opus', 'perplexity/sonar-pro'],
-        creative: ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'meta-llama/llama-3.1-405b-instruct']
+        translate: ['openai/gpt-4o', 'google/gemini-flash-1.5', 'meta-llama/llama-3.1-70b-instruct', 'zhipu/glm-4.5-air'],
+        summarize: ['openai/gpt-4o-mini', 'anthropic/claude-3-haiku', 'google/gemini-flash-1.5', 'zhipu/glm-4.5-air'],
+        research: ['openai/gpt-4o', 'anthropic/claude-3-opus', 'perplexity/sonar-pro', 'zhipu/glm-4.5'],
+        creative: ['openai/gpt-4o', 'anthropic/claude-3.5-sonnet', 'meta-llama/llama-3.1-405b-instruct', 'zhipu/glm-4-plus']
     }
 };
 
