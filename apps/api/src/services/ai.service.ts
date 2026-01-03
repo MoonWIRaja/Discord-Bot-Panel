@@ -894,65 +894,119 @@ export class AIService {
             openrouter: 'https://openrouter.ai/api/v1/chat/completions'
         };
 
-        // OpenRouter supports multi-model fallback with comma-separated models
-        // e.g., "z-ai/glm-4.5-air:free, google/gemini-2.0-flash-exp:free"
-        const isMultiModel = provider === 'openrouter' && model.includes(',');
-        const modelList = isMultiModel
-            ? model.split(',').map(m => m.trim())
-            : undefined;
+        // Multi-model fallback support (comma-separated models)
+        // OpenRouter uses native API fallback, other providers use app-level fallback
+        const hasMultipleModels = model.includes(',');
+        const modelList = hasMultipleModels
+            ? model.split(',').map(m => m.trim()) 
+            : [model];
 
-        const requestBody: any = {
-            messages: messages.map(m => ({
-                role: m.role,
-                content: m.content,
-                tool_calls: m.tool_calls,
-                tool_call_id: m.tool_call_id,
-                name: m.name
-            })),
-            max_tokens: 4096,
-            tools: tools && tools.length > 0 ? tools : undefined
-        };
+        // For OpenRouter, use native multi-model fallback
+        if (provider === 'openrouter' && hasMultipleModels) {
+            const requestBody: any = {
+                models: modelList,
+                route: 'fallback',
+                messages: messages.map(m => ({
+                    role: m.role,
+                    content: m.content,
+                    tool_calls: m.tool_calls,
+                    tool_call_id: m.tool_call_id,
+                    name: m.name
+                })),
+                max_tokens: 4096,
+                tools: tools && tools.length > 0 ? tools : undefined
+            };
 
-        // OpenRouter multi-model fallback
-        if (isMultiModel && modelList) {
-            requestBody.models = modelList;
-            requestBody.route = 'fallback';
             console.log(`[AIService] OpenRouter multi-model fallback: ${modelList.join(' → ')}`);
-        } else {
-            requestBody.model = model;
+
+            const response = await fetch(endpoints[provider], {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const errorMsg = errorData.error?.message || errorData.message || `API error: ${response.status}`;
+                console.error(`[AIService] ${provider} API error:`, JSON.stringify(errorData, null, 2));
+                throw new Error(`${provider}: ${errorMsg}`);
+            }
+
+            const data = await response.json();
+            const tokenUsage = data.usage?.total_tokens || 0;
+            const content = data.choices?.[0]?.message?.content || '';
+            const toolCalls = data.choices?.[0]?.message?.tool_calls;
+            return { content, tokenUsage, toolCalls };
         }
 
-        const response = await fetch(endpoints[provider], {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify(requestBody)
-        });
+        // For other providers: application-level fallback (try each model until success)
+        let lastError: Error | null = null;
+        for (const currentModel of modelList) {
+            try {
+                if (hasMultipleModels) {
+                    console.log(`[AIService] Trying model: ${currentModel} (${modelList.indexOf(currentModel) + 1}/${modelList.length})`);
+                }
+
+                const requestBody: any = {
+                    model: currentModel,
+                    messages: messages.map(m => ({
+                        role: m.role,
+                        content: m.content,
+                        tool_calls: m.tool_calls,
+                        tool_call_id: m.tool_call_id,
+                        name: m.name
+                    })),
+                    max_tokens: 4096,
+                    tools: tools && tools.length > 0 ? tools : undefined
+                };
+
+                const response = await fetch(endpoints[provider], {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify(requestBody)
+                });
         
-        // DEBUG: Log if tools are being sent
-        if (tools && tools.length > 0) {
-            console.log(`[AIService] Sending ${tools.length} tools to ${provider}`);
-        } else {
-            console.log(`[AIService] No tools sent to ${provider}`);
+                // DEBUG: Log if tools are being sent
+                if (tools && tools.length > 0) {
+                    console.log(`[AIService] Sending ${tools.length} tools to ${provider}`);
+                }
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    const errorMsg = errorData.error?.message || errorData.message || `API error: ${response.status}`;
+                    console.error(`[AIService] ${provider}/${currentModel} error:`, errorMsg);
+                    throw new Error(`${provider}: ${errorMsg}`);
+                }
+
+                const data = await response.json();
+                const tokensUsed = data.usage?.total_tokens ||
+                    ((data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0)) || null;
+
+                if (hasMultipleModels) {
+                    console.log(`[AIService] Success with model: ${currentModel}`);
+                }
+
+                return {
+                    content: data.choices?.[0]?.message?.content || '',
+                    tokensUsed,
+                    toolCalls: data.choices?.[0]?.message?.tool_calls
+                };
+            } catch (error: any) {
+                lastError = error;
+                if (hasMultipleModels && modelList.indexOf(currentModel) < modelList.length - 1) {
+                    console.log(`[AIService] Model ${currentModel} failed, trying next...`);
+                }
+            }
         }
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            const errorMsg = errorData.error?.message || errorData.message || `API error: ${response.status}`;
-            console.error(`[AIService] ${provider} API error:`, JSON.stringify(errorData, null, 2));
-            throw new Error(`${provider}: ${errorMsg}`);
-        }
-
-        const data = await response.json();
-        // OpenAI-compatible APIs return usage.total_tokens
-        const tokensUsed = data.usage?.total_tokens || 
-            ((data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0)) || null;
-        return { 
-            content: data.choices?.[0]?.message?.content || '',
-            tokensUsed 
-        };
+        // All models failed
+        throw lastError || new Error('All models failed');
     }
 
     /**
