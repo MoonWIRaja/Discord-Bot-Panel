@@ -603,19 +603,19 @@ export const PROVIDER_MODELS: Record<string, Record<string, string[]>> = {
         creative: ['llama3.3', 'mistral']
     },
     zanai: {
-        // Z.AI (智谱) models - GLM series
-        chat: ['glm-4-plus', 'glm-4-0520', 'glm-4-air', 'glm-4-airx', 'glm-4-long', 'glm-4-flashx', 'glm-4-flash', 'glm-4.7', 'glm-4'],
-        code: ['codegeex-4', 'glm-4-plus', 'glm-4-0520'],
-        debug: ['glm-4-plus', 'glm-4-0520', 'glm-4'],
+        // Z.AI (智谱) models - GLM series (updated with GLM-4.5 released July 2025)
+        chat: ['glm-4.5', 'glm-4.5-air', 'glm-4-plus', 'glm-4-0520', 'glm-4-air', 'glm-4-airx', 'glm-4-long', 'glm-4-flashx', 'glm-4-flash', 'glm-4'],
+        code: ['glm-4.5', 'codegeex-4', 'glm-4-plus', 'glm-4-0520'],
+        debug: ['glm-4.5', 'glm-4-plus', 'glm-4-0520', 'glm-4'],
         image: ['cogview-3-plus', 'cogview-3'],
         video: ['cogvideox'],
         audio: [],
         music: [],
         vision: ['glm-4v-plus', 'glm-4v', 'glm-4v-flash'],
-        translate: ['glm-4-flash', 'glm-4'],
-        summarize: ['glm-4-flash', 'glm-4-air'],
-        research: ['glm-4-plus', 'glm-4-long'],
-        creative: ['glm-4-plus', 'glm-4']
+        translate: ['glm-4.5-air', 'glm-4-flash', 'glm-4'],
+        summarize: ['glm-4.5-air', 'glm-4-flash', 'glm-4-air'],
+        research: ['glm-4.5', 'glm-4-plus', 'glm-4-long'],
+        creative: ['glm-4.5', 'glm-4-plus', 'glm-4']
     },
     openrouter: {
         // OpenRouter - aggregates many providers, popular models
@@ -667,7 +667,7 @@ export const DEFAULT_MODELS: Record<string, string> = {
     ai21: 'jamba-1.5-large',
     huggingface: 'meta-llama/Llama-3.3-70B-Instruct',
     ollama: 'llama3.3',
-    zanai: 'glm-4-plus',
+    zanai: 'glm-4.5-air',
     openrouter: 'openai/gpt-4o'
 };
 
