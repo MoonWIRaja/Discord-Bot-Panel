@@ -895,54 +895,17 @@ export class AIService {
         };
 
         // Multi-model fallback support (comma-separated models)
-        // OpenRouter uses native API fallback, other providers use app-level fallback
+        // All providers use app-level fallback - try each model until success
         const hasMultipleModels = model.includes(',');
-        const modelList = hasMultipleModels
+        const modelList = hasMultipleModels 
             ? model.split(',').map(m => m.trim()) 
             : [model];
 
-        // For OpenRouter, use native multi-model fallback
-        if (provider === 'openrouter' && hasMultipleModels) {
-            const requestBody: any = {
-                models: modelList,
-                route: 'fallback',
-                messages: messages.map(m => ({
-                    role: m.role,
-                    content: m.content,
-                    tool_calls: m.tool_calls,
-                    tool_call_id: m.tool_call_id,
-                    name: m.name
-                })),
-                max_tokens: 4096,
-                tools: tools && tools.length > 0 ? tools : undefined
-            };
-
-            console.log(`[AIService] OpenRouter multi-model fallback: ${modelList.join(' → ')}`);
-
-            const response = await fetch(endpoints[provider], {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify(requestBody)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                const errorMsg = errorData.error?.message || errorData.message || `API error: ${response.status}`;
-                console.error(`[AIService] ${provider} API error:`, JSON.stringify(errorData, null, 2));
-                throw new Error(`${provider}: ${errorMsg}`);
-            }
-
-            const data = await response.json();
-            const tokenUsage = data.usage?.total_tokens || 0;
-            const content = data.choices?.[0]?.message?.content || '';
-            const toolCalls = data.choices?.[0]?.message?.tool_calls;
-            return { content, tokenUsage, toolCalls };
+        if (hasMultipleModels) {
+            console.log(`[AIService] ${provider} multi-model fallback: ${modelList.join(' → ')}`);
         }
 
-        // For other providers: application-level fallback (try each model until success)
+        // Application-level fallback (try each model until success)
         let lastError: Error | null = null;
         for (const currentModel of modelList) {
             try {
