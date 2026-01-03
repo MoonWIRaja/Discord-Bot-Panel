@@ -14,7 +14,7 @@
     const providerNames: Record<string, string> = {
         openai: 'OpenAI',
         gemini: 'Gemini',
-        azure: 'Azure OpenAI',
+        azure: 'Azure AI',
         claude: 'Claude',
         groq: 'Groq',
         mistral: 'Mistral AI',

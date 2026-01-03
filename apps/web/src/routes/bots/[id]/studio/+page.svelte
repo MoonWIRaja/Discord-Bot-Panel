@@ -1731,10 +1731,22 @@
                                 >
                                     <option value="gemini">🌟 Gemini</option>
                                     <option value="openai">🤖 OpenAI</option>
-                                    <option value="azure">☁️ Azure</option>
+                                    <option value="azure">☁️ Azure AI</option>
+                                    <option value="claude">🎭 Claude</option>
                                     <option value="groq">⚡ Groq</option>
-                                    <option value="together">🤝 Together</option>
+                                    <option value="mistral">🌀 Mistral AI</option>
+                                    <option value="cohere">🔷 Cohere</option>
+                                    <option value="perplexity">🔮 Perplexity</option>
                                     <option value="deepseek">🔍 DeepSeek</option>
+                                    <option value="xai">🚀 xAI (Grok)</option>
+                                    <option value="together">🤝 Together AI</option>
+                                    <option value="fireworks">🎆 Fireworks</option>
+                                    <option value="replicate">🔁 Replicate</option>
+                                    <option value="ai21">📚 AI21 Labs</option>
+                                    <option value="huggingface">🤗 HuggingFace</option>
+                                    <option value="ollama">🦙 Ollama (Local)</option>
+                                    <option value="zanai">🧠 Z.AI (智谱)</option>
+                                    <option value="openrouter">🌐 OpenRouter</option>
                                 </select>
                             </div>
                             <div>
@@ -1935,8 +1947,22 @@
                                 >
                                     <option value="gemini">🌟 Gemini</option>
                                     <option value="openai">🤖 OpenAI</option>
+                                    <option value="azure">☁️ Azure AI</option>
+                                    <option value="claude">🎭 Claude</option>
                                     <option value="groq">⚡ Groq</option>
-                                    <option value="together">🤝 Together</option>
+                                    <option value="mistral">🌀 Mistral AI</option>
+                                    <option value="cohere">🔷 Cohere</option>
+                                    <option value="perplexity">🔮 Perplexity</option>
+                                    <option value="deepseek">🔍 DeepSeek</option>
+                                    <option value="xai">🚀 xAI (Grok)</option>
+                                    <option value="together">🤝 Together AI</option>
+                                    <option value="fireworks">🎆 Fireworks</option>
+                                    <option value="replicate">🔁 Replicate</option>
+                                    <option value="ai21">📚 AI21 Labs</option>
+                                    <option value="huggingface">🤗 HuggingFace</option>
+                                    <option value="ollama">🦙 Ollama (Local)</option>
+                                    <option value="zanai">🧠 Z.AI (智谱)</option>
+                                    <option value="openrouter">🌐 OpenRouter</option>
                                 </select>
                             </div>
                             <div>

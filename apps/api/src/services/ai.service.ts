@@ -81,7 +81,7 @@ export const AI_PROVIDERS = {
     },
     azure: {
         id: 'azure',
-        name: 'Azure OpenAI',
+        name: 'Azure AI',
         endpoint: '', // User provides
         supportsImage: true,
         supportsVideo: false,
