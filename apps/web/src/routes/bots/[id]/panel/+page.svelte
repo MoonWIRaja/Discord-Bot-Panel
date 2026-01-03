@@ -482,16 +482,16 @@
 
 <div class="h-screen flex flex-col bg-dark-base font-display text-white">
     <!-- Header -->
-    <header class="h-14 bg-dark-surface border-b border-dark-border flex items-center justify-between px-4 shrink-0">
-        <div class="flex items-center gap-3">
+    <header class="h-14 bg-dark-surface border-b border-dark-border flex items-center justify-between px-3 sm:px-4 shrink-0">
+        <div class="flex items-center gap-2 sm:gap-3">
             <button onclick={goBack} class="p-2 hover:bg-white/5 rounded-lg text-gray-400 hover:text-white transition-colors">
                 <span class="material-symbols-outlined">arrow_back</span>
             </button>
-            <div class="h-6 w-px bg-dark-border"></div>
-            <h1 class="text-white font-bold text-lg">{bot?.name || 'Loading...'} Panel</h1>
+            <div class="h-6 w-px bg-dark-border hidden sm:block"></div>
+            <h1 class="text-white font-bold text-base sm:text-lg truncate max-w-[120px] sm:max-w-none">{bot?.name || 'Loading...'} <span class="hidden sm:inline">Panel</span></h1>
             
             <!-- Status Badge -->
-            <div class="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold
+            <div class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 rounded-full text-xs font-bold
                 {botStatus === 'online' ? 'bg-green-500/10 text-green-400' : ''}
                 {botStatus === 'offline' ? 'bg-gray-500/10 text-gray-400' : ''}
                 {botStatus === 'starting' ? 'bg-amber-500/10 text-amber-400' : ''}
@@ -503,21 +503,21 @@
                     {botStatus === 'starting' ? 'bg-amber-400' : ''}
                     {botStatus === 'stopping' ? 'bg-red-400' : ''}
                 "></span>
-                {botStatus.charAt(0).toUpperCase() + botStatus.slice(1)}
+                <span class="hidden sm:inline">{botStatus.charAt(0).toUpperCase() + botStatus.slice(1)}</span>
             </div>
         </div>
-        <div class="flex items-center gap-3">
-            <a href="/bots/{id}/studio" class="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg font-medium text-sm transition-colors">
+        <div class="flex items-center gap-2 sm:gap-3">
+            <a href="/bots/{id}/studio" class="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 rounded-lg font-medium text-sm transition-colors" title="Studio">
                 <span class="material-symbols-outlined text-[18px]">code</span>
-                Studio
+                <span class="hidden sm:inline">Studio</span>
             </a>
         </div>
     </header>
 
     <!-- Main Content -->
-    <div class="flex-1 overflow-hidden p-6 lg:p-8 space-y-4">
+    <div class="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-6 lg:p-8 space-y-4">
         <!-- Bot Controls + Profile Card -->
-        <div class="bg-dark-surface rounded-xl border border-dark-border p-6">
+        <div class="bg-dark-surface rounded-xl border border-dark-border p-4 sm:p-6">
             <div class="flex flex-col lg:flex-row gap-6">
                 <!-- Left: Control Buttons -->
                 <div class="flex-1">
