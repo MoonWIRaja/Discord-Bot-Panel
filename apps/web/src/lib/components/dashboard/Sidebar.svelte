@@ -4,6 +4,7 @@
     import { onMount } from 'svelte';
     import { api } from '$lib/api';
     import { page } from '$app/stores';
+    import { sidebarOpen, closeSidebar } from '$lib/stores/sidebar';
     
     const session = useSession();
     let showProfileMenu = $state(false);
@@ -72,7 +73,23 @@
     }
 </script>
 
-<aside class="w-64 bg-dark-surface border-r border-dark-border text-muted flex flex-col h-full shrink-0 transition-all duration-300 relative z-20">
+<!-- Mobile backdrop overlay -->
+{#if $sidebarOpen}
+    <button 
+        onclick={closeSidebar}
+        class="lg:hidden fixed inset-0 bg-black/50 z-30 cursor-default"
+        aria-label="Close sidebar"
+    ></button>
+{/if}
+
+<!-- Sidebar - hidden on mobile by default, shown when toggle is clicked -->
+<aside class="
+    w-64 bg-dark-surface border-r border-dark-border text-muted flex flex-col h-full shrink-0 transition-all duration-300 z-40
+    fixed lg:relative
+    top-0 bottom-0 left-0
+    transform lg:transform-none
+    {$sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+">
     <div class="h-16 flex items-center px-6 gap-3 text-white border-b border-dark-border">
         <div class="size-8 rounded-lg bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
             <span class="material-symbols-outlined text-[20px]">smart_toy</span>
@@ -81,20 +98,20 @@
     </div>
     <div class="flex-1 flex flex-col gap-2 p-4 overflow-y-auto">
         <p class="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 px-3">Menu</p>
-        <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {isActive('/dashboard') ? 'bg-primary text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'text-gray-400 hover:bg-white/5 hover:text-white'}" href="/dashboard">
+        <a onclick={closeSidebar} class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {isActive('/dashboard') ? 'bg-primary text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'text-gray-400 hover:bg-white/5 hover:text-white'}" href="/dashboard">
             <span class="material-symbols-outlined text-[20px]">dashboard</span>
             Dashboard
         </a>
-        <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {isActive('/bots') ? 'bg-primary text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'text-gray-400 hover:bg-white/5 hover:text-white'}" href="/bots">
+        <a onclick={closeSidebar} class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {isActive('/bots') ? 'bg-primary text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'text-gray-400 hover:bg-white/5 hover:text-white'}" href="/bots">
             <span class="material-symbols-outlined text-[20px]">robot_2</span>
             My Bots
         </a>
-        <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {isActive('/templates') ? 'bg-primary text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'text-gray-400 hover:bg-white/5 hover:text-white'}" href="/templates">
+        <a onclick={closeSidebar} class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {isActive('/templates') ? 'bg-primary text-white shadow-[0_0_15px_rgba(99,102,241,0.3)]' : 'text-gray-400 hover:bg-white/5 hover:text-white'}" href="/templates">
             <span class="material-symbols-outlined text-[20px]">grid_view</span>
             Templates
         </a>
         {#if isAdmin}
-            <a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {isActive('/admin') ? 'bg-amber-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.3)]' : 'text-amber-400 hover:bg-amber-500/10 hover:text-amber-300'}" href="/admin">
+            <a onclick={closeSidebar} class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors {isActive('/admin') ? 'bg-amber-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.3)]' : 'text-amber-400 hover:bg-amber-500/10 hover:text-amber-300'}" href="/admin">
                 <span class="material-symbols-outlined text-[20px]">admin_panel_settings</span>
                 Admin Panel
             </a>

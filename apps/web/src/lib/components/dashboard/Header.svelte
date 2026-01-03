@@ -2,6 +2,7 @@
     import { useSession } from '$lib/auth';
     import { api } from '$lib/api';
     import { goto } from '$app/navigation';
+    import { sidebarOpen, toggleSidebar } from '$lib/stores/sidebar';
     
     const session = useSession();
     
@@ -72,7 +73,18 @@
     }
 </script>
 
-<header class="h-16 bg-dark-surface border-b border-dark-border flex items-center justify-between px-6 shrink-0 z-10">
+<header class="h-16 bg-dark-surface border-b border-dark-border flex items-center justify-between px-4 lg:px-6 shrink-0 z-10">
+    <!-- Mobile hamburger menu -->
+    <button 
+        onclick={toggleSidebar}
+        class="lg:hidden flex items-center justify-center size-10 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-colors mr-2"
+        aria-label="Toggle menu"
+    >
+        <span class="material-symbols-outlined text-[24px]">
+            {$sidebarOpen ? 'close' : 'menu'}
+        </span>
+    </button>
+    
     <div class="flex-1 max-w-md">
         <div class="relative group">
             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-primary transition-colors">
