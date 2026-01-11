@@ -1135,4 +1135,4 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ---
 
-Made with 💜 by MoonWiRaja (KRACKED DEV)
+Made with 💜 by MoonWiRaja (KRACKEDDEV)
