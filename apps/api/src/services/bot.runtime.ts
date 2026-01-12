@@ -1723,14 +1723,99 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                 ...history
             ];
 
-            const response = await AIService.chat({
+            // Get tool definitions
+            const tools = ToolRegistry.getToolDefinitions();
+
+            let result = await AIService.chat({
                 provider: genericProviderId as any,
                 apiKey: apiKey,
                 model: selectedModel,
                 mode: currentMode as any,
                 azureEndpoint: providerConfig.azureEndpoint,
-                azureDeployment: providerConfig.azureDeployment
+                azureDeployment: providerConfig.azureDeployment,
+                zanaiEndpoint: providerConfig.zanaiEndpoint || '',
+                tools: tools
             }, messagesWithSystem);
+
+            let fullResponse = result.content || '';
+
+            // Handle tool calls (max 5 turns)
+            let turnCount = 0;
+            while (result.toolCalls && result.toolCalls.length > 0 && turnCount < 5) {
+                turnCount++;
+
+                // Add assistant message with tool calls to history (and messagesWithSystem)
+                const assistantMsg = {
+                    role: 'assistant',
+                    content: result.content,
+                    tool_calls: result.toolCalls
+                };
+                messagesWithSystem.push(assistantMsg as any);
+                history.push(assistantMsg as any);
+
+                // Execute tools
+                for (const toolCall of result.toolCalls) {
+                    const functionName = toolCall.function.name;
+                    let functionArgs = {};
+                    try {
+                        functionArgs = JSON.parse(toolCall.function.arguments);
+                    } catch (e) {
+                        console.error(`[BotRuntime] Error parsing args for ${functionName}:`, e);
+                    }
+
+                    console.log(`[BotRuntime] Private Chat - Executing tool: ${functionName}`);
+                    await thread.sendTyping().catch(() => { });
+
+                    let toolResult = '';
+                    const tool = ToolRegistry.getTool(functionName);
+                    if (tool) {
+                        try {
+                            // Log tool execution to bot logs
+                            this.addBotLog(botId, 'AI', `🛠️ Executing: ${functionName}`, {
+                                user: message.author.username,
+                                details: { args: functionArgs }
+                            });
+                            toolResult = await tool.handler(functionArgs);
+                        } catch (error: any) {
+                            toolResult = `Error executing tool: ${error.message}`;
+                        }
+                    } else {
+                        toolResult = `Tool ${functionName} not found.`;
+                    }
+
+                    // Add tool result to history
+                    const toolMsg = {
+                        role: 'tool',
+                        tool_call_id: toolCall.id,
+                        name: functionName,
+                        content: toolResult
+                    };
+                    messagesWithSystem.push(toolMsg as any);
+                    history.push(toolMsg as any);
+                }
+
+                // Call AI again with tool results
+                result = await AIService.chat({
+                    provider: genericProviderId as any,
+                    apiKey: apiKey,
+                    model: selectedModel,
+                    mode: currentMode as any,
+                    azureEndpoint: providerConfig.azureEndpoint,
+                    azureDeployment: providerConfig.azureDeployment,
+                    zanaiEndpoint: providerConfig.zanaiEndpoint || '',
+                    tools: tools
+                }, messagesWithSystem);
+
+                if (result.content) {
+                    if (fullResponse) fullResponse += '\n\n';
+                    fullResponse += result.content;
+                }
+            }
+
+            // If no tool calls were made or final result is different
+            const finalResponse = fullResponse || result.content;
+
+            const response = { ...result, content: finalResponse };
 
             if (response.error) {
                 await message.reply(`❌ AI Error: ${response.error}`);
@@ -3176,8 +3261,11 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                     azureEndpoint: selectedProviderConfig.azureEndpoint || '',
                     azureDeployment: selectedProviderConfig.azureDeployment || '',
                     azureType: selectedProviderConfig.azureType || 'auto',
+                    zanaiEndpoint: selectedProviderConfig.zanaiEndpoint || '',
                     tools: tools
                 }, messages);
+
+                let fullResponse = result.content || '';
 
                 // Handle tool calls (max 5 turns)
                 let turnCount = 0;
@@ -3208,6 +3296,11 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                         const tool = ToolRegistry.getTool(functionName);
                         if (tool) {
                             try {
+                                // Log tool execution to bot logs
+                                this.addBotLog(botId, 'AI', `🛠️ Executing: ${functionName}`, {
+                                    user: message.author.username,
+                                    details: { args: functionArgs }
+                                });
                                 toolResult = await tool.handler(functionArgs);
                             } catch (error: any) {
                                 toolResult = `Error executing tool: ${error.message}`;
@@ -3234,11 +3327,20 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                         azureEndpoint: selectedProviderConfig.azureEndpoint || '',
                         azureDeployment: selectedProviderConfig.azureDeployment || '',
                         azureType: selectedProviderConfig.azureType || 'auto',
+                        zanaiEndpoint: selectedProviderConfig.zanaiEndpoint || '',
                         tools: tools
                     }, messages);
+
+                    if (result.content) {
+                        if (fullResponse) fullResponse += '\n\n';
+                        fullResponse += result.content;
+                    }
                 }
 
-                if (!result.error && result.content) {
+                // If no tool calls were made or final result is different
+                const finalResponse = fullResponse || result.content;
+
+                if (!result.error && finalResponse) {
                     // Record token usage - use selected provider after multi-provider selection
                     const tokensUsed = result.tokensUsed || null;
                     const actualProviderId = selectedProviderConfig?.id || providerId;
@@ -3266,7 +3368,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                     // Save training example if training mode active
                     if (trainingStatus.isTrainingActive) {
                         try {
-                            await TrainingService.saveExample(botId, message.content, result.content, {
+                            await TrainingService.saveExample(botId, message.content, finalResponse, {
                                 userId: message.author.id,
                                 userName: message.author.username,
                                 channelId: message.channel.id
@@ -3278,7 +3380,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                             // Extract knowledge from conversation
                             const knowledgeEntries = await KnowledgeService.extractKnowledge(
                                 message.content,
-                                result.content,
+                                finalResponse,
                                 config
                             );
                             if (knowledgeEntries.length > 0) {
@@ -3293,9 +3395,10 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                         }
                     }
 
-                    // Split long responses
-                    const chunks = result.content.match(/[\s\S]{1,1900}/g) || [result.content];
+                    // Send response in chunks (Discord 2000 char limit)
+                    const chunks = AIService.chunkMessage(finalResponse);
                     for (const chunk of chunks) {
+                        await channel.sendTyping().catch(() => { });
                         await message.reply(chunk);
                     }
                 } else {

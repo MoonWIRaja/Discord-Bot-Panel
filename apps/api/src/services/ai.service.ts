@@ -925,15 +925,25 @@ export class AIService {
 
                 const requestBody: any = {
                     model: currentModel,
-                    messages: messages.map(m => ({
-                        role: m.role,
-                        content: m.content,
-                        tool_calls: m.tool_calls,
-                        tool_call_id: m.tool_call_id,
-                        name: m.name
-                    })),
+                    messages: messages.map(m => {
+                        const msg: any = {
+                            role: m.role,
+                            content: m.content
+                        };
+                        if (m.tool_calls) msg.tool_calls = m.tool_calls;
+                        if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
+                        if (m.name) msg.name = m.name;
+
+                        // Z.AI and OpenAI: assistant message with tool_calls should have null/empty content
+                        if (m.role === 'assistant' && m.tool_calls && !m.content) {
+                            msg.content = null;
+                        }
+
+                        return msg;
+                    }),
                     max_tokens: 4096,
-                    tools: tools && tools.length > 0 ? tools : undefined
+                    tools: tools && tools.length > 0 ? tools : undefined,
+                    tool_choice: tools && tools.length > 0 ? 'auto' : undefined
                 };
 
                 const response = await fetch(endpoint, {
@@ -947,7 +957,7 @@ export class AIService {
         
                 // DEBUG: Log if tools are being sent
                 if (tools && tools.length > 0) {
-                    console.log(`[AIService] Sending ${tools.length} tools to ${provider}`);
+                    console.log(`[AIService] Sending ${tools.length} tools to ${provider} (${currentModel})`);
                 }
 
                 if (!response.ok) {
@@ -1088,7 +1098,15 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
             const makeRequest = async (useMaxCompletionTokens = false) => {
                 const body: any = {
                     model: model,
-                    messages: messages.map(m => ({ role: m.role, content: m.content }))
+                    messages: messages.map(m => {
+                        const msg: any = { role: m.role, content: m.content };
+                        if (m.tool_calls) msg.tool_calls = m.tool_calls;
+                        if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
+                        if (m.name) msg.name = m.name;
+                        return msg;
+                    }),
+                    tools: config.tools && config.tools.length > 0 ? config.tools : undefined,
+                    tool_choice: config.tools && config.tools.length > 0 ? 'auto' : undefined
                 };
 
                 if (useMaxCompletionTokens) {
@@ -1151,7 +1169,15 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
             const makeRequest = async (useMaxCompletionTokens = false) => {
                 const body: any = {
                     model: model,
-                    messages: messages.map(m => ({ role: m.role, content: m.content }))
+                    messages: messages.map(m => {
+                        const msg: any = { role: m.role, content: m.content };
+                        if (m.tool_calls) msg.tool_calls = m.tool_calls;
+                        if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
+                        if (m.name) msg.name = m.name;
+                        return msg;
+                    }),
+                    tools: config.tools && config.tools.length > 0 ? config.tools : undefined,
+                    tool_choice: config.tools && config.tools.length > 0 ? 'auto' : undefined
                 };
 
                 if (useMaxCompletionTokens) {
@@ -1207,7 +1233,15 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
     try {
         const makeRequest = async (useMaxCompletionTokens = false) => {
             const body: any = {
-                messages: messages.map(m => ({ role: m.role, content: m.content }))
+                messages: messages.map(m => {
+                    const msg: any = { role: m.role, content: m.content };
+                    if (m.tool_calls) msg.tool_calls = m.tool_calls;
+                    if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
+                    if (m.name) msg.name = m.name;
+                    return msg;
+                }),
+                tools: config.tools && config.tools.length > 0 ? config.tools : undefined,
+                tool_choice: config.tools && config.tools.length > 0 ? 'auto' : undefined
             };
 
             if (useMaxCompletionTokens) {
