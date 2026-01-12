@@ -38,6 +38,7 @@ export interface AIConfig {
     azureDeployment?: string;
     azureType?: 'auto' | 'openai' | 'anthropic' | 'serverless' | 'inference' | 'github' | 'responses' | 'custom';
     ollamaHost?: string;
+    zanaiEndpoint?: string;
 }
 
 export interface AIResponse {
@@ -846,7 +847,7 @@ export class AIService {
                 case 'mistral':
                 case 'zanai':
                 case 'openrouter':
-                    return await this.chatOpenAICompatible(provider, apiKey, model || DEFAULT_MODELS[provider], allMessages, config.tools);
+                    return await this.chatOpenAICompatible(provider, apiKey, model || DEFAULT_MODELS[provider], allMessages, config.tools, provider === 'zanai' ? config.zanaiEndpoint : undefined);
                 case 'azure':
                     return await this.chatAzure(config, allMessages);
                 case 'gemini':
@@ -880,19 +881,28 @@ export class AIService {
     /**
      * OpenAI-compatible API (OpenAI, Groq, Together, Fireworks, etc.)
      */
-    static async chatOpenAICompatible(provider: string, apiKey: string, model: string, messages: AIMessage[], tools?: any[]): Promise<AIResponse> {
-        const endpoints: Record<string, string> = {
-            openai: 'https://api.openai.com/v1/chat/completions',
-            groq: 'https://api.groq.com/openai/v1/chat/completions',
-            together: 'https://api.together.xyz/v1/chat/completions',
-            fireworks: 'https://api.fireworks.ai/inference/v1/chat/completions',
-            perplexity: 'https://api.perplexity.ai/chat/completions',
-            deepseek: 'https://api.deepseek.com/v1/chat/completions',
-            xai: 'https://api.x.ai/v1/chat/completions',
-            mistral: 'https://api.mistral.ai/v1/chat/completions',
-            zanai: 'https://api.z.ai/api/paas/v4/chat/completions',
-            openrouter: 'https://openrouter.ai/api/v1/chat/completions'
-        };
+    static async chatOpenAICompatible(provider: string, apiKey: string, model: string, messages: AIMessage[], tools?: any[], baseURL?: string): Promise<AIResponse> {
+        let endpoint = baseURL;
+
+        if (!endpoint) {
+            const endpoints: Record<string, string> = {
+                openai: 'https://api.openai.com/v1/chat/completions',
+                groq: 'https://api.groq.com/openai/v1/chat/completions',
+                together: 'https://api.together.xyz/v1/chat/completions',
+                fireworks: 'https://api.fireworks.ai/inference/v1/chat/completions',
+                perplexity: 'https://api.perplexity.ai/chat/completions',
+                deepseek: 'https://api.deepseek.com/v1/chat/completions',
+                xai: 'https://api.x.ai/v1/chat/completions',
+                mistral: 'https://api.mistral.ai/v1/chat/completions',
+                zanai: 'https://api.z.ai/api/paas/v4/chat/completions',
+                openrouter: 'https://openrouter.ai/api/v1/chat/completions'
+            };
+            endpoint = endpoints[provider];
+        }
+
+        if (!endpoint) {
+            throw new Error(`Unknown endpoint for provider: ${provider}`);
+        }
 
         // Multi-model fallback support (comma-separated models)
         // All providers use app-level fallback - try each model until success
@@ -926,7 +936,7 @@ export class AIService {
                     tools: tools && tools.length > 0 ? tools : undefined
                 };
 
-                const response = await fetch(endpoints[provider], {
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

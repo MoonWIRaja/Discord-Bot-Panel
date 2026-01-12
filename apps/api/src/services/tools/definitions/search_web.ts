@@ -3,7 +3,7 @@ import { ToolDefinition, ToolRegistry } from '../registry.js';
 
 const searchWeb: ToolDefinition = {
     name: 'search_web',
-    description: 'Search the internet for real-time information, news, or facts.',
+    description: 'Advanced web search to find real-time information, facts, and answers on the internet.',
     category: 'search',
     parameters: {
         query: {
@@ -13,18 +13,47 @@ const searchWeb: ToolDefinition = {
         }
     },
     handler: async ({ query }: { query: string }) => {
+        const tavilyKey = process.env.TAVILY_API_KEY;
+
+        if (tavilyKey) {
+            console.log(`[Tool:search_web] Searching Tavily for: "${query}"`);
+            try {
+                const response = await fetch('https://api.tavily.com/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        api_key: tavilyKey,
+                        query: query,
+                        search_depth: "advanced",
+                        max_results: 5
+                    })
+                });
+                const data = await response.json();
+
+                if (data.results && data.results.length > 0) {
+                    const results = data.results.map((r: any) => ({
+                        title: r.title,
+                        url: r.url,
+                        snippet: r.content,
+                        score: r.score
+                    }));
+                    return JSON.stringify(results);
+                }
+            } catch (error: any) {
+                console.error(`[Tool:search_web] Tavily failed: ${error.message}, falling back to DuckDuckGo`);
+            }
+        }
+
         console.log(`[Tool:search_web] Searching DuckDuckGo for: "${query}"`);
         try {
             const results = await search(query, {
                 safeSearch: SafeSearchType.STRICT
             });
-            console.log(`[Tool:search_web] Got ${results.results?.length || 0} results`);
 
             if (!results.results || results.results.length === 0) {
                 return "No results found.";
             }
 
-            // Return top 5 results
             const topResults = results.results.slice(0, 5).map(r => ({
                 title: r.title,
                 url: r.url,
