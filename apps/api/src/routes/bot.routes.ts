@@ -356,6 +356,34 @@ router.post('/ai/fetch-models', async (req, res) => {
         break;
       }
 
+      case 'zanai': {
+        // Z.AI models endpoint usually ends with /models
+        // If endpoint is completions URL, try to guess the models URL
+        const modelsUrl = endpoint
+          ? endpoint.replace(/\/chat\/completions$/, '/models').replace(/\/$/, '') + (endpoint.includes('/chat/completions') ? '' : '/models')
+          : 'https://open.bigmodel.cn/api/paas/v4/models';
+
+        console.log('[FetchModels] Z.AI URL:', modelsUrl);
+        const response = await fetch(modelsUrl, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          models = (data.data || data.models || []).map((m: any) => ({
+            id: m.id || m.model,
+            name: m.name || m.id || m.model,
+            modes: ['chat', 'code', 'vision']
+          }));
+        } else {
+          console.warn(`[FetchModels] Z.AI failed with status ${response.status}:`, await response.text());
+        }
+        break;
+      }
+
       default:
         // For providers without model listing API, return empty
         res.json({ models: [], message: 'This provider does not support model listing' });
@@ -538,6 +566,11 @@ router.post('/ai/deploy-model', async (req, res) => {
         testUrl = 'https://api.anthropic.com/v1/messages';
         testBody = { model: modelName, max_tokens: 20, messages: [{ role: 'user', content: 'test' }] };
         headers = { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' };
+        break;
+      case 'zanai':
+        testUrl = endpoint || 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+        testBody = { model: modelName, messages: [{ role: 'user', content: 'test' }], max_tokens: 20 };
+        headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
         break;
     }
 

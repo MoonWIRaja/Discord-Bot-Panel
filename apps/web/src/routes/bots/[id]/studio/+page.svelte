@@ -1789,12 +1789,26 @@
                                     />
                                 </div>
                             {/if}
+                            {#if selectedNode.data.provider === 'zanai'}
+                                <div>
+                                    <label for="ai-zanai-endpoint" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Z.AI Endpoint (Global)</label>
+                                    <input 
+                                        id="ai-zanai-endpoint"
+                                        type="text"
+                                        value={selectedNode.data.zanaiEndpoint || ''}
+                                        oninput={(e) => updateNodeData('zanaiEndpoint', e.currentTarget.value)}
+                                        placeholder="https://open.bigmodel.cn/api/paas/v4/chat/completions"
+                                        class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm"
+                                    />
+                                    <p class="text-[10px] text-gray-500 mt-1 italic">Leave empty for default Z.AI endpoint.</p>
+                                </div>
+                            {/if}
                             <button
                                 onclick={() => fetchProviderModels(
                                     selectedNode?.id || '',
                                     String(selectedNode?.data.provider || 'gemini'),
                                     String(selectedNode?.data.apiKey || ''),
-                                    String(selectedNode?.data.azureEndpoint || '')
+                                    String(selectedNode?.data.azureEndpoint || selectedNode?.data.zanaiEndpoint || '')
                                 )}
                                 disabled={loadingFetchModels || !selectedNode?.data.apiKey}
                                 class="w-full py-2.5 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-500 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20"
@@ -1826,7 +1840,7 @@
                                         selectedNode?.id || '',
                                         String(selectedNode?.data.provider || 'azure'),
                                         String(selectedNode?.data.apiKey || ''),
-                                        String(selectedNode?.data.azureEndpoint || ''),
+                                        String(selectedNode?.data.azureEndpoint || selectedNode?.data.zanaiEndpoint || ''),
                                         String(selectedNode?.data.customModel || '')
                                     )}
                                     disabled={loadingDeployModel || !selectedNode?.data?.customModel || !selectedNode?.data?.apiKey}
