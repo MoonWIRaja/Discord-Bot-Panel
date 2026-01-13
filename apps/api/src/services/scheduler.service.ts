@@ -146,7 +146,7 @@ export class SchedulerService {
     }
 
     private static async executeTask(task: any) {
-        console.log(`[SchedulerService] Executing task: ${task.taskName} for bot ${task.botId}`);
+        console.log(`[SchedulerService] Executing task: ${task.taskName} for bot ${task.botId}, targetChannel: ${task.channelId}`);
 
         try {
             const client = BotRuntime.activeBots.get(task.botId);
@@ -155,11 +155,27 @@ export class SchedulerService {
                 return;
             }
 
-            const channel = await client.channels.fetch(task.channelId).catch(() => null) as TextChannel;
+            let channel = await client.channels.fetch(task.channelId).catch(() => null) as TextChannel;
+
+            // If fetch failed, try to find channel by name
             if (!channel) {
-                console.log(`[SchedulerService] Channel ${task.channelId} not found`);
+                console.log(`[SchedulerService] Channel ID ${task.channelId} not found, trying to find by name...`);
+                const guild = client.guilds.cache.first();
+                if (guild) {
+                    channel = guild.channels.cache.find(ch =>
+                        ch.id === task.channelId ||
+                        ch.name.toLowerCase().includes(task.channelId.toLowerCase()) ||
+                        ch.name.toLowerCase() === task.channelId.toLowerCase()
+                    ) as TextChannel;
+                }
+            }
+
+            if (!channel) {
+                console.log(`[SchedulerService] Channel ${task.channelId} still not found, skipping task`);
                 return;
             }
+
+            console.log(`[SchedulerService] Found channel: ${channel.name} (${channel.id})`);
 
             // For scheduled reminders, just send the taskDescription directly - no need for AI generation
             // This is more reliable and faster

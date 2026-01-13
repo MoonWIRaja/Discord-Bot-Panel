@@ -174,7 +174,7 @@ function padTime(hours: number, minutes: number): string {
 
 const schedulerTool: ToolDefinition = {
     name: 'manage_schedule',
-    description: '⏰ SCHEDULE TOOL - Creates REAL automatic reminders that will run at specified times. Use this tool DIRECTLY when user asks for reminders, schedules, or recurring tasks. DO NOT provide code snippets - just create the schedule. Examples: "remind me every day at 9am", "daily prayer times", "weekly meeting every Monday at 2pm", "remind in 30 minutes". All times use Malaysia timezone (UTC+8) automatically.',
+    description: '⏰ SCHEDULE TOOL - Creates REAL automatic reminders that will run at specified times. Use this tool DIRECTLY when user asks for reminders, schedules, or recurring tasks. DO NOT provide code snippets - just create the schedule.\n\nIMPORTANT: Extract the target channel from user message. If user says "send to #channel-name" or "hantar ke #channel", use targetChannel parameter with that channel name.\n\nExamples: "remind me every day at 9am", "daily prayer times", "weekly meeting every Monday at 2pm", "remind in 30 minutes", "send to #announcements". All times use Malaysia timezone (UTC+8) automatically.',
     category: 'utility',
     parameters: {
         action: {
@@ -201,10 +201,15 @@ const schedulerTool: ToolDefinition = {
             type: 'string',
             description: 'Direct cron expression (advanced): "0 6 * * *" for daily 6am, "0 9 * * 1" for Monday 9am, etc.',
             required: false
+        },
+        targetChannel: {
+            type: 'string',
+            description: 'Target channel ID or name (e.g., "apprentices", "1455631099408683131"). If not specified, uses current chat channel.',
+            required: false
         }
     },
-    handler: async ({ action, taskName, description, time, cron }, { botId, userId, channelId }) => {
-        console.log(`[Tool:manage_schedule] Action: ${action}, Task: ${taskName}, Time: ${time}`);
+    handler: async ({ action, taskName, description, time, cron, targetChannel }, { botId, userId, channelId }) => {
+        console.log(`[Tool:manage_schedule] Action: ${action}, Task: ${taskName}, Time: ${time}, TargetChannel: ${targetChannel}`);
 
         try {
             if (action === 'create') {
@@ -233,11 +238,47 @@ const schedulerTool: ToolDefinition = {
                     return '❌ Please specify when to remind using "time" parameter (natural language) or "cron" parameter.';
                 }
 
+                // Determine target channel - try to resolve from mentions or use provided ID
+                let finalChannelId = channelId; // Default to current channel
+
+                if (targetChannel) {
+                    // If it looks like a channel ID (numeric), use it directly
+                    if (/^\d{17,19}$/.test(targetChannel.trim())) {
+                        finalChannelId = targetChannel.trim();
+                    } else {
+                        // Try to find channel by name using the bot
+                        const { BotRuntime } = await import('../../bot.runtime.js');
+                        const client = BotRuntime.activeBots.get(botId);
+                        if (client) {
+                            const channels = await client.channels.fetch(targetChannel).catch(() => null);
+                            if (channels) {
+                                finalChannelId = channels.id;
+                            } else {
+                                // Try to search for channel by name
+                                const guild = client.guilds.cache.first();
+                                if (guild) {
+                                    const foundChannel = guild.channels.cache.find((ch: any) =>
+                                        ch.name.toLowerCase().includes(targetChannel.toLowerCase()) ||
+                                        ch.name.toLowerCase() === targetChannel.toLowerCase()
+                                    );
+                                    if (foundChannel) {
+                                        finalChannelId = foundChannel.id;
+                                    }
+                                }
+                            }
+                        }
+                        // If still not found, keep the original targetChannel name (will be resolved by scheduler)
+                        if (finalChannelId === channelId) {
+                            finalChannelId = targetChannel; // Store the name for later resolution
+                        }
+                    }
+                }
+
                 await db.insert(aiScheduler).values({
                     id: randomUUID(),
                     botId,
                     userId,
-                    channelId,
+                    channelId: finalChannelId,
                     taskName,
                     taskDescription: description || taskName,
                     cronExpression,
@@ -247,7 +288,8 @@ const schedulerTool: ToolDefinition = {
                 });
 
                 const scheduleDisplay = scheduleInfo?.display || cronExpression;
-                return `✅ Reminder "${taskName}" scheduled! Will run: ${scheduleDisplay}\n\n💭 The bot will automatically send: "${description || taskName}"`;
+                const channelDisplay = finalChannelId !== channelId ? ` to channel "${targetChannel}"` : '';
+                return `✅ Reminder "${taskName}" scheduled${channelDisplay}! Will run: ${scheduleDisplay}\n\n💭 The bot will send: "${description || taskName}"`;
             }
 
             if (action === 'list') {
