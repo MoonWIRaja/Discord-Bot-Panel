@@ -838,7 +838,10 @@ export class AIService {
             ];
             
             // Route to provider
-            switch (provider) {
+            // Handle UUID-based provider IDs (e.g., 'zanai-uuid' -> 'zanai')
+            const baseProvider = provider.includes('-') ? provider.split('-')[0] : provider;
+
+            switch (baseProvider) {
                 case 'openai':
                 case 'groq':
                 case 'together':
@@ -848,8 +851,13 @@ export class AIService {
                 case 'xai':
                 case 'mistral':
                 case 'zanai':
+                    // Z.AI requires a custom endpoint
+                    if (!config.endpoint && !config.zanaiEndpoint) {
+                        return { content: '', error: '❌ Z.AI requires a custom endpoint. Please set the "Z.AI Endpoint" in your AI Provider settings.\nExamples:\n• Mountly: https://api.z.ai/api/coding/paas/v4\n• Zhipu Global: (contact provider)' };
+                    }
+                    return await this.chatOpenAICompatible(baseProvider, apiKey, model || DEFAULT_MODELS.zanai, allMessages, config.tools, config.endpoint || config.zanaiEndpoint);
                 case 'openrouter':
-                    return await this.chatOpenAICompatible(provider, apiKey, model || DEFAULT_MODELS[provider], allMessages, config.tools, config.endpoint);
+                    return await this.chatOpenAICompatible(baseProvider, apiKey, model || DEFAULT_MODELS.openrouter, allMessages, config.tools, config.endpoint);
                 case 'azure':
                     return await this.chatAzure(config, allMessages);
                 case 'gemini':
@@ -898,15 +906,10 @@ export class AIService {
                 deepseek: 'https://api.deepseek.com/v1/chat/completions',
                 xai: 'https://api.x.ai/v1/chat/completions',
                 mistral: 'https://api.mistral.ai/v1/chat/completions',
-                // zanai: NO DEFAULT - user must provide custom endpoint (Mountly, global, etc.)
+                // zanai: NO DEFAULT - user must provide custom endpoint (checked in switch)
                 openrouter: 'https://openrouter.ai/api/v1/chat/completions'
             };
             endpoint = endpoints[provider];
-
-            // Z.AI requires custom endpoint
-            if (provider === 'zanai' && !endpoint) {
-                return { content: '', error: '❌ Z.AI requires a custom endpoint. Please set the "Z.AI Endpoint" in your AI Provider settings.\nExamples:\n• Mountly: https://api.z.ai/api/coding/paas/v4\n• Zhipu Global: (contact provider)' };
-            }
         } else {
             // Ensure endpoint ends with /chat/completions for OpenAI-compatible providers
             // This fix ensures Z.AI and other custom endpoints work even if only the base URL is provided
