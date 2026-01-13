@@ -1795,16 +1795,16 @@
                             <!-- Z.AI Custom Endpoint -->
                             {#if selectedNode.data.provider === 'zanai'}
                                 <div>
-                                    <label for="ai-zanai-endpoint" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Z.AI Endpoint (Optional)</label>
+                                    <label for="ai-zanai-endpoint" class="block text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">⚠️ Z.AI Endpoint (Required)</label>
                                     <input
                                         id="ai-zanai-endpoint"
                                         type="text"
                                         value={selectedNode.data.endpoint || selectedNode.data.zanaiEndpoint || ''}
                                         oninput={(e) => updateNodeData('endpoint', e.currentTarget.value)}
-                                        placeholder="https://open.bigmodel.cn/api/paas/v4"
-                                        class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm"
+                                        placeholder="https://api.z.ai/api/paas/v4"
+                                        class="w-full bg-dark-base border border-amber-500/50 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-400"
                                     />
-                                    <p class="text-[10px] text-gray-500 mt-1">Custom Z.AI (智谱) API endpoint. Leave empty for default.</p>
+                                    <p class="text-[10px] text-amber-400/80 mt-1">🔑 Coding Plan: https://api.z.ai/api/paas/v4 | Zhipu Global: https://open.bigmodel.cn/api/paas/v4</p>
                                 </div>
                             {/if}
 

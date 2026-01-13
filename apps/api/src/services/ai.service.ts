@@ -852,10 +852,11 @@ export class AIService {
                 case 'mistral':
                 case 'zanai':
                     // Z.AI requires a custom endpoint
-                    if (!config.endpoint && !config.zanaiEndpoint) {
-                        return { content: '', error: '❌ Z.AI requires a custom endpoint. Please set the "Z.AI Endpoint" in your AI Provider settings.\nExamples:\n• Mountly: https://api.z.ai/api/coding/paas/v4\n• Zhipu Global: (contact provider)' };
+                    const zanaiEndpoint = config.endpoint || config.zanaiEndpoint;
+                    if (!zanaiEndpoint) {
+                        return { content: '', error: '❌ Z.AI requires a custom endpoint. Please set the "Z.AI Endpoint" in your AI Provider settings.\n\n**How to fix:**\n1. Open Studio → Click on your Z.AI Provider node\n2. Find "Z.AI Endpoint (Optional)" field\n3. Enter your endpoint URL\n\n**Endpoints for your plan:**\n• **Coding Plan**: `https://api.z.ai/api/paas/v4`\n• **Zhipu Global**: `https://open.bigmodel.cn/api/paas/v4`\n\n💡 Tip: Just paste the base URL, the system will add /chat/completions automatically.' };
                     }
-                    return await this.chatOpenAICompatible(baseProvider, apiKey, model || DEFAULT_MODELS.zanai, allMessages, config.tools, config.endpoint || config.zanaiEndpoint);
+                    return await this.chatOpenAICompatible(baseProvider, apiKey, model || DEFAULT_MODELS.zanai, allMessages, config.tools, zanaiEndpoint);
                 case 'openrouter':
                     return await this.chatOpenAICompatible(baseProvider, apiKey, model || DEFAULT_MODELS.openrouter, allMessages, config.tools, config.endpoint);
                 case 'azure':
