@@ -13,11 +13,18 @@ export interface ToolContext {
     channelId: string;
 }
 
+export interface ToolResult {
+    content: string;
+    files?: Array<{ name: string; content: string; size?: number }>;
+    sessionId?: string;
+    [key: string]: any;
+}
+
 export interface ToolDefinition {
     name: string;
     description: string;
     parameters: Record<string, ToolArgument>;
-    handler: (args: any, context: ToolContext) => Promise<string>;
+    handler: (args: any, context: ToolContext) => Promise<string | ToolResult>;
     category?: 'utility' | 'search' | 'info' | 'fun';
 }
 

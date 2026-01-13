@@ -1739,6 +1739,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
             }, messagesWithSystem);
 
             let fullResponse = result.content || '';
+            const filesToSend: Array<{ name: string; content: string }> = [];
 
             // Handle tool calls (max 5 turns)
             let turnCount = 0;
@@ -1767,7 +1768,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                     console.log(`[BotRuntime] Private Chat - Executing tool: ${functionName}`);
                     await thread.sendTyping().catch(() => { });
 
-                    let toolResult = '';
+                    let toolResult: any = '';
                     const tool = ToolRegistry.getTool(functionName);
                     if (tool) {
                         try {
@@ -1781,6 +1782,16 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                                 userId: message.author.id,
                                 channelId: message.channel.id
                             });
+
+                            // Collect files from tool result
+                            if (typeof toolResult === 'object' && toolResult.files) {
+                                for (const file of toolResult.files) {
+                                    filesToSend.push({
+                                        name: file.name,
+                                        content: Buffer.from(file.content, 'base64').toString('utf-8')
+                                    });
+                                }
+                            }
                         } catch (error: any) {
                             toolResult = `Error executing tool: ${error.message}`;
                         }
@@ -1788,12 +1799,15 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                         toolResult = `Tool ${functionName} not found.`;
                     }
 
+                    // Extract content for AI message (handle both string and object results)
+                    const toolContent = typeof toolResult === 'object' ? toolResult.content || toolResult : toolResult;
+
                     // Add tool result to history
                     const toolMsg = {
                         role: 'tool',
                         tool_call_id: toolCall.id,
                         name: functionName,
-                        content: toolResult
+                        content: toolContent
                     };
                     messagesWithSystem.push(toolMsg as any);
                     history.push(toolMsg as any);
@@ -1888,15 +1902,28 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                 .set({ conversationHistory: JSON.stringify(history) })
                 .where(eq(aiSessions.id, session[0].id));
 
-            // Send AI response (split if too long)
-            const maxLength = 2000;
-            if (response.content.length <= maxLength) {
-                await message.reply(response.content);
+            // Send AI response (with files if any)
+            if (filesToSend.length > 0) {
+                // Send response with file attachments
+                const attachments = filesToSend.map(f => ({
+                    attachment: Buffer.from(f.content),
+                    name: f.name
+                }));
+                await message.reply({
+                    content: response.content,
+                    files: attachments
+                });
             } else {
-                // Split into chunks
-                const chunks = response.content.match(/.{1,1990}/gs) || [];
-                for (const chunk of chunks) {
-                    await thread.send(chunk);
+                // Send AI response (split if too long)
+                const maxLength = 2000;
+                if (response.content.length <= maxLength) {
+                    await message.reply(response.content);
+                } else {
+                    // Split into chunks
+                    const chunks = response.content.match(/.{1,1990}/gs) || [];
+                    for (const chunk of chunks) {
+                        await thread.send(chunk);
+                    }
                 }
             }
 
@@ -3271,6 +3298,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                 }, messages);
 
                 let fullResponse = result.content || '';
+                const filesToSend: Array<{ name: string; content: string }> = [];
 
                 // Handle tool calls (max 5 turns)
                 let turnCount = 0;
@@ -3297,7 +3325,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                         console.log(`[BotRuntime] Executing tool: ${functionName}`);
                         await channel.sendTyping().catch(() => { });
 
-                        let toolResult = '';
+                        let toolResult: any = '';
                         const tool = ToolRegistry.getTool(functionName);
                         if (tool) {
                             try {
@@ -3311,6 +3339,16 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                                     userId: message.author.id,
                                     channelId: message.channel.id
                                 });
+
+                                // Collect files from tool result
+                                if (typeof toolResult === 'object' && toolResult.files) {
+                                    for (const file of toolResult.files) {
+                                        filesToSend.push({
+                                            name: file.name,
+                                            content: Buffer.from(file.content, 'base64').toString('utf-8')
+                                        });
+                                    }
+                                }
                             } catch (error: any) {
                                 toolResult = `Error executing tool: ${error.message}`;
                             }
@@ -3318,12 +3356,15 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                             toolResult = `Tool ${functionName} not found.`;
                         }
 
+                        // Extract content for AI message
+                        const toolContent = typeof toolResult === 'object' ? toolResult.content || toolResult : toolResult;
+
                         // Add tool result to history
                         messages.push({
                             role: 'tool',
                             tool_call_id: toolCall.id,
                             name: functionName,
-                            content: toolResult
+                            content: toolContent
                         });
                     }
 
@@ -3404,11 +3445,35 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                         }
                     }
 
-                    // Send response in chunks (Discord 2000 char limit)
-                    const chunks = AIService.chunkMessage(finalResponse);
-                    for (const chunk of chunks) {
-                        await channel.sendTyping().catch(() => { });
-                        await message.reply(chunk);
+                    // Send response (with files if any)
+                    if (filesToSend.length > 0) {
+                        // Send response with file attachments
+                        const attachments = filesToSend.map(f => ({
+                            attachment: Buffer.from(f.content),
+                            name: f.name
+                        }));
+
+                        // Split text response if needed, then send with files
+                        const chunks = AIService.chunkMessage(finalResponse);
+                        for (let i = 0; i < chunks.length; i++) {
+                            await channel.sendTyping().catch(() => { });
+                            if (i === 0 && chunks.length > 0) {
+                                // First chunk includes files
+                                await message.reply({
+                                    content: chunks[i],
+                                    files: attachments
+                                });
+                            } else {
+                                await message.reply(chunks[i]);
+                            }
+                        }
+                    } else {
+                        // Send response in chunks (Discord 2000 char limit)
+                        const chunks = AIService.chunkMessage(finalResponse);
+                        for (const chunk of chunks) {
+                            await channel.sendTyping().catch(() => { });
+                            await message.reply(chunk);
+                        }
                     }
                 } else {
                     await message.reply(`❌ ${result.error || 'Failed to get AI response'}`);
