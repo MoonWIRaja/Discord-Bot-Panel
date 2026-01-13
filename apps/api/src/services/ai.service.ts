@@ -855,17 +855,17 @@ export class AIService {
                 case 'gemini':
                     return await this.chatGemini(apiKey, model || DEFAULT_MODELS.gemini, allMessages, config.tools);
                 case 'claude':
-                    return await this.chatClaude(apiKey, model || DEFAULT_MODELS.claude, allMessages);
+                    return await this.chatClaude(apiKey, model || DEFAULT_MODELS.claude, allMessages, config.tools);
                 case 'cohere':
-                    return await this.chatCohere(apiKey, model || DEFAULT_MODELS.cohere, allMessages);
+                    return await this.chatCohere(apiKey, model || DEFAULT_MODELS.cohere, allMessages, config.tools);
                 case 'ai21':
-                    return await this.chatAI21(apiKey, model || DEFAULT_MODELS.ai21, allMessages);
+                    return await this.chatAI21(apiKey, model || DEFAULT_MODELS.ai21, allMessages, config.tools);
                 case 'huggingface':
-                    return await this.chatHuggingFace(apiKey, model || DEFAULT_MODELS.huggingface, allMessages);
+                    return await this.chatHuggingFace(apiKey, model || DEFAULT_MODELS.huggingface, allMessages, config.tools);
                 case 'ollama':
-                    return await this.chatOllama(config.ollamaHost || 'http://localhost:11434', model || DEFAULT_MODELS.ollama, allMessages);
+                    return await this.chatOllama(config.ollamaHost || 'http://localhost:11434', model || DEFAULT_MODELS.ollama, allMessages, config.tools);
                 case 'replicate':
-                    return await this.chatReplicate(apiKey, model || DEFAULT_MODELS.replicate, allMessages);
+                    return await this.chatReplicate(apiKey, model || DEFAULT_MODELS.replicate, allMessages, config.tools);
                 default:
                     return { content: '', error: `Unknown provider: ${provider}` };
             }
@@ -898,7 +898,7 @@ export class AIService {
                 deepseek: 'https://api.deepseek.com/v1/chat/completions',
                 xai: 'https://api.x.ai/v1/chat/completions',
                 mistral: 'https://api.mistral.ai/v1/chat/completions',
-                zanai: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+                zanai: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',  // Zhipu AI (China) - for global, use custom endpoint
                 openrouter: 'https://openrouter.ai/api/v1/chat/completions'
             };
             endpoint = endpoints[provider];
@@ -937,18 +937,15 @@ export class AIService {
                 // Detect if model needs max_completion_tokens (newer OpenAI/o1/o3/GPT-5 models)
                 const needsMaxCompletionTokens = /(?:o1|o3|o4|gpt-5|gpt-5\.|gpt-4\.1|gpt-4\.2)/i.test(currentModel);
 
-                // Z.AI - don't set max_tokens, let API use default (no limit)
+                // Z.AI special handling
                 const isMountlyZAI = provider === 'zanai' && originalEndpoint && originalEndpoint.includes('api.z.ai');
-                const shouldSetTokenLimit = !isMountlyZAI; // Don't set limit for mountly Z.AI
-
-                // Mountly coding plan may not support tools - try without tools first
-                const shouldIncludeTools = !isMountlyZAI || (tools && tools.length > 0);
+                const isZhipuAI = provider === 'zanai' && !isMountlyZAI;  // Standard Zhipu AI (China/global)
 
                 if (needsMaxCompletionTokens) {
                     console.log(`[AIService] Using max_completion_tokens for ${currentModel} (newer model)`);
                 }
                 if (isMountlyZAI) {
-                    console.log(`[AIService] Mountly Z.AI coding plan - tools disabled, using simple chat`);
+                    console.log(`[AIService] Mountly Z.AI coding plan - tools enabled, unlimited tokens`);
                 }
 
                 // Make request with retry for max_tokens -> max_completion_tokens
@@ -972,13 +969,17 @@ export class AIService {
 
                             return msg;
                         }),
-                        // Mountly coding plan may not support tools - skip tools for Z.AI mountly
-                        tools: (!isMountlyZAI && tools && tools.length > 0) ? tools : undefined,
-                        tool_choice: (!isMountlyZAI && tools && tools.length > 0) ? 'auto' : undefined
+                        // Tools - enabled for all providers including Mountly Z.AI
+                        tools: tools && tools.length > 0 ? tools : undefined,
+                        tool_choice: tools && tools.length > 0 ? 'auto' : undefined
                     };
 
-                    // Only set token limit if needed (skip for mountly Z.AI to use API default)
-                    if (shouldSetTokenLimit) {
+                    // Set token limit based on provider/model
+                    if (isMountlyZAI) {
+                        // Mountly Z.AI coding plan - no token limit (unlimited)
+                        // Don't set max_tokens - let API use default
+                    } else {
+                        // All other providers including Zhipu AI
                         // Use max_completion_tokens for newer models or on retry
                         if (needsMaxCompletionTokens || useMaxCompletion) {
                             requestBody.max_completion_tokens = 4096;
@@ -999,11 +1000,7 @@ export class AIService {
 
                 // DEBUG: Log if tools are being sent
                 if (tools && tools.length > 0) {
-                    if (isMountlyZAI) {
-                        console.log(`[AIService] Tools skipped for mountly Z.AI (${currentModel}) - coding plan may not support tools`);
-                    } else {
-                        console.log(`[AIService] Sending ${tools.length} tools to ${provider} (${currentModel})`);
-                    }
+                    console.log(`[AIService] Sending ${tools.length} tools to ${provider} (${currentModel})${isMountlyZAI ? ' (Mountly Z.AI)' : ''}`);
                 }
 
                 // First attempt
@@ -1274,9 +1271,13 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
 
             const data = await response.json();
             // Azure AI Inference OpenAI-compatible format
-            const tokensUsed = data.usage?.total_tokens || 
+            const tokensUsed = data.usage?.total_tokens ||
                 ((data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0)) || null;
-            return { content: data.choices?.[0]?.message?.content || '', tokensUsed };
+            return {
+                content: data.choices?.[0]?.message?.content || '',
+                tokensUsed,
+                toolCalls: data.choices?.[0]?.message?.tool_calls
+            };
         } catch (error: any) {
             console.error('[AIService] Azure AI Inference error:', error);
             return { content: '', error: error.message || 'Azure AI Inference error' };
@@ -1326,7 +1327,11 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
             const data = await response.json();
             const tokensUsed = data.usage?.total_tokens ||
                 ((data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0)) || null;
-            return { content: data.choices?.[0]?.message?.content || '', tokensUsed };
+            return {
+                content: data.choices?.[0]?.message?.content || '',
+                tokensUsed,
+                toolCalls: data.choices?.[0]?.message?.tool_calls
+            };
         } catch (error: any) {
             console.error('[AIService] Azure Responses API error:', error);
             return { content: '', error: error.message || 'Azure Responses API error' };
@@ -1393,9 +1398,13 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
 
         const data = await response.json();
         // Standard Azure OpenAI format
-        const tokensUsed = data.usage?.total_tokens || 
+        const tokensUsed = data.usage?.total_tokens ||
             ((data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0)) || null;
-        return { content: data.choices?.[0]?.message?.content || '', tokensUsed };
+        return {
+            content: data.choices?.[0]?.message?.content || '',
+            tokensUsed,
+            toolCalls: data.choices?.[0]?.message?.tool_calls
+        };
     } catch (error: any) {
         console.error('[AIService] Azure OpenAI error:', error);
         return { content: '', error: error.message || 'Azure OpenAI API error' };
@@ -1464,9 +1473,16 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
     /**
      * Anthropic Claude
      */
-    static async chatClaude(apiKey: string, model: string, messages: AIMessage[]): Promise<AIResponse> {
+    static async chatClaude(apiKey: string, model: string, messages: AIMessage[], tools?: any[]): Promise<AIResponse> {
         const systemMessage = messages.find(m => m.role === 'system');
         const chatMessages = messages.filter(m => m.role !== 'system');
+
+        // Convert tools to Claude format
+        const claudeTools = tools && tools.length > 0 ? tools.map(t => ({
+            name: t.function.name,
+            description: t.function.description,
+            input_schema: t.function.parameters
+        })) : undefined;
 
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
@@ -1479,7 +1495,9 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
                 model,
                 max_tokens: 4096,
                 system: systemMessage?.content || '',
-                messages: chatMessages.map(m => ({ role: m.role, content: m.content }))
+                messages: chatMessages.map(m => ({ role: m.role, content: m.content })),
+                tools: claudeTools,
+                tool_choice: claudeTools && claudeTools.length > 0 ? { type: 'auto' } : undefined
             })
         });
 
@@ -1490,21 +1508,43 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
 
         const data = await response.json();
         // Claude returns usage.input_tokens and usage.output_tokens
-        const tokensUsed = data.usage ? 
+        const tokensUsed = data.usage ?
             (data.usage.input_tokens || 0) + (data.usage.output_tokens || 0) : null;
-        return { 
-            content: data.content?.[0]?.text || '',
-            tokensUsed 
+
+        // Extract tool calls if any
+        const toolCalls = data.content?.filter((c: any) => c.type === 'tool_use').map((c: any) => ({
+            id: c.id,
+            type: 'function',
+            function: {
+                name: c.name,
+                arguments: JSON.stringify(c.input)
+            }
+        }));
+
+        // Extract text content
+        const textContent = data.content?.find((c: any) => c.type === 'text')?.text || '';
+
+        return {
+            content: textContent,
+            tokensUsed,
+            toolCalls: toolCalls && toolCalls.length > 0 ? toolCalls : undefined
         };
     }
 
     /**
      * Cohere
      */
-    static async chatCohere(apiKey: string, model: string, messages: AIMessage[]): Promise<AIResponse> {
+    static async chatCohere(apiKey: string, model: string, messages: AIMessage[], tools?: any[]): Promise<AIResponse> {
         const systemMessage = messages.find(m => m.role === 'system');
         const lastMessage = messages[messages.length - 1];
         const chatHistory = messages.slice(0, -1).filter(m => m.role !== 'system');
+
+        // Convert tools to Cohere format
+        const cohereTools = tools && tools.length > 0 ? tools.map(t => ({
+            name: t.function.name,
+            description: t.function.description,
+            parameterDefinitions: t.function.parameters.properties
+        })) : undefined;
 
         const response = await fetch('https://api.cohere.ai/v1/chat', {
             method: 'POST',
@@ -1519,7 +1559,8 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
                 chat_history: chatHistory.map(m => ({
                     role: m.role === 'assistant' ? 'CHATBOT' : 'USER',
                     message: m.content
-                }))
+                })),
+                tools: cohereTools
             })
         });
 
@@ -1529,13 +1570,27 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
         }
 
         const data = await response.json();
-        return { content: data.text || '' };
+
+        // Extract tool calls if any
+        const toolCalls = data.toolCalls?.map((tc: any) => ({
+            id: tc.id || 'call_' + Math.random().toString(36).substr(2, 9),
+            type: 'function',
+            function: {
+                name: tc.name,
+                arguments: JSON.stringify(tc.parameters)
+            }
+        }));
+
+        return {
+            content: data.text || '',
+            toolCalls: toolCalls && toolCalls.length > 0 ? toolCalls : undefined
+        };
     }
 
     /**
      * AI21 Labs
      */
-    static async chatAI21(apiKey: string, model: string, messages: AIMessage[]): Promise<AIResponse> {
+    static async chatAI21(apiKey: string, model: string, messages: AIMessage[], tools?: any[]): Promise<AIResponse> {
         const response = await fetch('https://api.ai21.com/studio/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -1544,7 +1599,9 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
             },
             body: JSON.stringify({
                 model,
-                messages: messages.map(m => ({ role: m.role, content: m.content }))
+                messages: messages.map(m => ({ role: m.role, content: m.content })),
+                tools: tools && tools.length > 0 ? tools : undefined,
+                tool_choice: tools && tools.length > 0 ? 'auto' : undefined
             })
         });
 
@@ -1554,13 +1611,16 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
         }
 
         const data = await response.json();
-        return { content: data.choices?.[0]?.message?.content || '' };
+        return {
+            content: data.choices?.[0]?.message?.content || '',
+            toolCalls: data.choices?.[0]?.message?.tool_calls
+        };
     }
 
     /**
      * HuggingFace Inference
      */
-    static async chatHuggingFace(apiKey: string, model: string, messages: AIMessage[]): Promise<AIResponse> {
+    static async chatHuggingFace(apiKey: string, model: string, messages: AIMessage[], tools?: any[]): Promise<AIResponse> {
         const response = await fetch(`https://api-inference.huggingface.co/models/${model}/v1/chat/completions`, {
             method: 'POST',
             headers: {
@@ -1570,7 +1630,9 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
             body: JSON.stringify({
                 model,
                 messages: messages.map(m => ({ role: m.role, content: m.content })),
-                max_tokens: 4096
+                max_tokens: 4096,
+                tools: tools && tools.length > 0 ? tools : undefined,
+                tool_choice: tools && tools.length > 0 ? 'auto' : undefined
             })
         });
 
@@ -1580,17 +1642,29 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
         }
 
         const data = await response.json();
-        return { content: data.choices?.[0]?.message?.content || '' };
+        return {
+            content: data.choices?.[0]?.message?.content || '',
+            toolCalls: data.choices?.[0]?.message?.tool_calls
+        };
     }
 
     /**
-     * Ollama (Local)
+     * Ollama (Local) - supports tools in newer versions
      */
-    static async chatOllama(host: string, model: string, messages: AIMessage[]): Promise<AIResponse> {
-        const response = await fetch(`${host}/api/chat`, {
+    static async chatOllama(host: string, model: string, messages: AIMessage[], tools?: any[]): Promise<AIResponse> {
+        // Ollama uses OpenAI-compatible /v1/chat/completions endpoint for tools
+        const useToolsEndpoint = tools && tools.length > 0;
+        const endpoint = useToolsEndpoint ? `${host}/v1/chat/completions` : `${host}/api/chat`;
+
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+            body: JSON.stringify(useToolsEndpoint ? {
+                model,
+                messages: messages.map(m => ({ role: m.role, content: m.content })),
+                tools: tools,
+                tool_choice: 'auto'
+            } : {
                 model,
                 messages: messages.map(m => ({ role: m.role, content: m.content })),
                 stream: false
@@ -1602,16 +1676,24 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
         }
 
         const data = await response.json();
-        return { content: data.message?.content || '' };
+        return {
+            content: data.message?.content || data.choices?.[0]?.message?.content || '',
+            toolCalls: data.choices?.[0]?.message?.tool_calls
+        };
     }
 
     /**
-     * Replicate
+     * Replicate - Note: Replicate doesn't support function calling/tools in chat format
+     * Tools are not available for Replicate as it's primarily for model inference, not agentic tools
      */
-    static async chatReplicate(apiKey: string, model: string, messages: AIMessage[]): Promise<AIResponse> {
+    static async chatReplicate(apiKey: string, model: string, messages: AIMessage[], tools?: any[]): Promise<AIResponse> {
         // Replicate uses a different API structure
         const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n');
-        
+
+        if (tools && tools.length > 0) {
+            console.log('[AIService] Replicate does not support function calling/tools');
+        }
+
         const response = await fetch('https://api.replicate.com/v1/predictions', {
             method: 'POST',
             headers: {
@@ -1630,7 +1712,7 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
         }
 
         const prediction = await response.json();
-        
+
         // Poll for completion
         let result = prediction;
         while (result.status !== 'succeeded' && result.status !== 'failed') {
