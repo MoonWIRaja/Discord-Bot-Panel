@@ -1,25 +1,13 @@
 import { defineConfig } from 'drizzle-kit';
 import dotenv from 'dotenv';
-import path from 'path';
 import { fileURLToPath } from 'url';
-import { readFileSync } from 'fs';
+import { dirname } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = dirname(__filename);
 
-// Read env file directly to avoid CommonJS issues
-const envPath = path.resolve(__dirname, '../../.env');
-try {
-  const envContent = readFileSync(envPath, 'utf-8');
-  envContent.split('\n').forEach(line => {
-    const [key, ...values] = line.split('=');
-    if (key && values.length > 0) {
-      process.env[key.trim()] = values.join('=').trim();
-    }
-  });
-} catch (e) {
-  // .env file doesn't exist, continue with defaults
-}
+// Load .env from project root
+dotenv.config({ path: `${__dirname}/../../.env` });
 
 export default defineConfig({
   schema: './src/db/schema.ts',
