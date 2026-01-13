@@ -937,14 +937,18 @@ export class AIService {
                 // Detect if model needs max_completion_tokens (newer OpenAI/o1/o3/GPT-5 models)
                 const needsMaxCompletionTokens = /(?:o1|o3|o4|gpt-5|gpt-5\.|gpt-4\.1|gpt-4\.2)/i.test(currentModel);
 
-                // Z.AI (mountly/coding plan) has lower token limits per request
+                // Z.AI - don't set max_tokens, let API use default (no limit)
                 const isMountlyZAI = provider === 'zanai' && originalEndpoint && originalEndpoint.includes('api.z.ai');
-                let maxTokens = isMountlyZAI ? 1024 : 4096;
-                if (isMountlyZAI) {
-                    console.log(`[AIService] Using reduced max_tokens=${maxTokens} for mountly Z.AI endpoint`);
-                }
+                const shouldSetTokenLimit = !isMountlyZAI; // Don't set limit for mountly Z.AI
+
+                // Mountly coding plan may not support tools - try without tools first
+                const shouldIncludeTools = !isMountlyZAI || (tools && tools.length > 0);
+
                 if (needsMaxCompletionTokens) {
                     console.log(`[AIService] Using max_completion_tokens for ${currentModel} (newer model)`);
+                }
+                if (isMountlyZAI) {
+                    console.log(`[AIService] Mountly Z.AI coding plan - tools disabled, using simple chat`);
                 }
 
                 // Make request with retry for max_tokens -> max_completion_tokens
@@ -968,15 +972,19 @@ export class AIService {
 
                             return msg;
                         }),
-                        tools: tools && tools.length > 0 ? tools : undefined,
-                        tool_choice: tools && tools.length > 0 ? 'auto' : undefined
+                        // Mountly coding plan may not support tools - skip tools for Z.AI mountly
+                        tools: (!isMountlyZAI && tools && tools.length > 0) ? tools : undefined,
+                        tool_choice: (!isMountlyZAI && tools && tools.length > 0) ? 'auto' : undefined
                     };
 
-                    // Use max_completion_tokens for newer models or on retry
-                    if (needsMaxCompletionTokens || useMaxCompletion) {
-                        requestBody.max_completion_tokens = maxTokens;
-                    } else {
-                        requestBody.max_tokens = maxTokens;
+                    // Only set token limit if needed (skip for mountly Z.AI to use API default)
+                    if (shouldSetTokenLimit) {
+                        // Use max_completion_tokens for newer models or on retry
+                        if (needsMaxCompletionTokens || useMaxCompletion) {
+                            requestBody.max_completion_tokens = 4096;
+                        } else {
+                            requestBody.max_tokens = 4096;
+                        }
                     }
 
                     return fetch(endpoint, {
@@ -991,7 +999,11 @@ export class AIService {
 
                 // DEBUG: Log if tools are being sent
                 if (tools && tools.length > 0) {
-                    console.log(`[AIService] Sending ${tools.length} tools to ${provider} (${currentModel})`);
+                    if (isMountlyZAI) {
+                        console.log(`[AIService] Tools skipped for mountly Z.AI (${currentModel}) - coding plan may not support tools`);
+                    } else {
+                        console.log(`[AIService] Sending ${tools.length} tools to ${provider} (${currentModel})`);
+                    }
                 }
 
                 // First attempt
