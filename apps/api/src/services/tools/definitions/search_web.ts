@@ -5,7 +5,7 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import * as cheerio from 'cheerio';
 
 // Initialize puppeteer-extra with stealth plugin
-puppeteer.use(StealthPlugin());
+(puppeteer as any).use(StealthPlugin());
 
 const searchWeb: ToolDefinition = {
     name: 'search_web',

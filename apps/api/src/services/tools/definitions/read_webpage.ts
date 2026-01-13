@@ -4,7 +4,7 @@ import * as cheerio from 'cheerio';
 import { ToolDefinition, ToolRegistry } from '../registry.js';
 
 // Initialize puppeteer-extra with stealth plugin
-puppeteer.use(StealthPlugin());
+(puppeteer as any).use(StealthPlugin());
 
 const readWebpage: ToolDefinition = {
     name: 'read_webpage',
