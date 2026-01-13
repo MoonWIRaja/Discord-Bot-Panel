@@ -14,17 +14,21 @@ const readWebpage: ToolDefinition = {
         }
     },
     handler: async ({ url }: { url: string }) => {
-        console.log(`[Tool:read_webpage] Fetching (Puppeteer): ${url}`);
-
         // Validate URL
         if (!url.startsWith('http://') && !url.startsWith('https://')) {
             return 'Invalid URL. Please provide a full URL starting with http:// or https://';
         }
 
+        // Try Puppeteer first, fall back to fetch if it fails
+        let puppeteerResult = null;
+        let puppeteerError = null;
+
+        // === Try Puppeteer ===
+        console.log(`[Tool:read_webpage] Trying Puppeteer for: ${url}`);
         let browser;
         try {
             browser = await puppeteer.launch({
-                headless: true,
+                headless: 'new',
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
@@ -37,29 +41,22 @@ const readWebpage: ToolDefinition = {
             });
 
             const page = await browser.newPage();
-
-            // Set a realistic User-Agent
             await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-            // Navigate to URL
             await page.goto(url, {
-                waitUntil: 'networkidle2',
+                waitUntil: 'domcontentloaded',
                 timeout: 30000
             });
 
-            // Get HTML content after JS execution
             const html = await page.content();
             const $ = cheerio.load(html);
 
-            // Remove unwanted elements
             $('script, style, nav, header, footer, aside, iframe, noscript, .ads, .advertisement, .sidebar, .menu, .navigation').remove();
 
-            // Extract page metadata
             const title = $('title').text().trim() || $('h1').first().text().trim() || 'No title';
             const metaDescription = $('meta[name="description"]').attr('content') || '';
             const ogDescription = $('meta[property="og:description"]').attr('content') || '';
 
-            // Extract main content
             let mainContent = '';
             const contentSelectors = [
                 'article', 'main', '.content', '.post-content', '.article-content',
@@ -78,7 +75,6 @@ const readWebpage: ToolDefinition = {
                 mainContent = $('body').text();
             }
 
-            // Clean up the text
             mainContent = mainContent
                 .replace(/\s+/g, ' ')
                 .replace(/\n\s*\n/g, '\n')
@@ -89,23 +85,96 @@ const readWebpage: ToolDefinition = {
                 mainContent = mainContent.substring(0, maxLength) + '... [content truncated]';
             }
 
-            console.log(`[Tool:read_webpage] Extracted ${mainContent.length} characters from ${url}`);
+            puppeteerResult = {
+                url: url,
+                title: title,
+                description: metaDescription || ogDescription || '',
+                content: mainContent,
+                content_length: mainContent.length
+            };
+
+            console.log(`[Tool:read_webpage] Puppeteer success: extracted ${mainContent.length} chars`);
+
+        } catch (error: any) {
+            puppeteerError = error;
+            console.error(`[Tool:read_webpage] Puppeteer failed: ${error.message}`);
+        } finally {
+            if (browser) {
+                try {
+                    await browser.close();
+                } catch (e) {
+                    console.log(`[Tool:read_webpage] Error closing browser: ${e}`);
+                }
+            }
+        }
+
+        // === Return Puppeteer result if successful ===
+        if (puppeteerResult) {
+            return JSON.stringify(puppeteerResult);
+        }
+
+        // === Fallback: Use fetch API ===
+        console.log(`[Tool:read_webpage] Falling back to fetch API for: ${url}`);
+        try {
+            const response = await fetch(url, {
+                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const html = await response.text();
+            const $ = cheerio.load(html);
+
+            $('script, style, nav, header, footer, aside, iframe, noscript, .ads, .advertisement, .sidebar, .menu, .navigation').remove();
+
+            const title = $('title').text().trim() || $('h1').first().text().trim() || 'No title';
+            const metaDescription = $('meta[name="description"]').attr('content') || '';
+            const ogDescription = $('meta[property="og:description"]').attr('content') || '';
+
+            let mainContent = '';
+            const contentSelectors = [
+                'article', 'main', '.content', '.post-content', '.article-content',
+                '.entry-content', '#content', '.story-body', '.article-body'
+            ];
+
+            for (const selector of contentSelectors) {
+                const element = $(selector);
+                if (element.length > 0) {
+                    mainContent = element.text();
+                    break;
+                }
+            }
+
+            if (!mainContent) {
+                mainContent = $('body').text();
+            }
+
+            mainContent = mainContent
+                .replace(/\s+/g, ' ')
+                .replace(/\n\s*\n/g, '\n')
+                .trim();
+
+            const maxLength = 8000;
+            if (mainContent.length > maxLength) {
+                mainContent = mainContent.substring(0, maxLength) + '... [content truncated]';
+            }
+
+            console.log(`[Tool:read_webpage] Fetch fallback success: extracted ${mainContent.length} chars`);
 
             return JSON.stringify({
                 url: url,
                 title: title,
                 description: metaDescription || ogDescription || '',
                 content: mainContent,
-                content_length: mainContent.length
+                content_length: mainContent.length,
+                note: 'Content fetched via fallback (fetch API) - Puppeteer was not available'
             });
 
-        } catch (error: any) {
-            console.error(`[Tool:read_webpage] Error:`, error.message);
-            return `Failed to read webpage: ${error.message}`;
-        } finally {
-            if (browser) {
-                await browser.close();
-            }
+        } catch (fetchError: any) {
+            console.error(`[Tool:read_webpage] Fetch fallback also failed: ${fetchError.message}`);
+            return `Failed to read webpage: ${puppeteerError?.message || 'Unknown error'} (Puppeteer unavailable, fetch also failed: ${fetchError.message})`;
         }
     }
 };

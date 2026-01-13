@@ -1509,7 +1509,8 @@ export class BotRuntime {
                 'groq': ['llama', 'mixtral', 'gemma'],
                 'azure': [], // Azure uses deployment names, not model names
                 'together': ['meta-llama', 'mistralai'],
-                'replicate': ['meta/', 'stability-ai/']
+                'replicate': ['meta/', 'stability-ai/'],
+                'zanai': ['glm-', 'cogview-']
             };
 
             // Check if sessionModel is valid for this provider
@@ -1733,7 +1734,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                 mode: currentMode as any,
                 azureEndpoint: providerConfig.azureEndpoint,
                 azureDeployment: providerConfig.azureDeployment,
-                zanaiEndpoint: providerConfig.zanaiEndpoint || '',
+                endpoint: providerConfig.endpoint || providerConfig.zanaiEndpoint || '',
                 tools: tools
             }, messagesWithSystem);
 
@@ -3261,7 +3262,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                     azureEndpoint: selectedProviderConfig.azureEndpoint || '',
                     azureDeployment: selectedProviderConfig.azureDeployment || '',
                     azureType: selectedProviderConfig.azureType || 'auto',
-                    zanaiEndpoint: selectedProviderConfig.zanaiEndpoint || '',
+                    endpoint: selectedProviderConfig.endpoint || selectedProviderConfig.zanaiEndpoint || '',
                     tools: tools
                 }, messages);
 

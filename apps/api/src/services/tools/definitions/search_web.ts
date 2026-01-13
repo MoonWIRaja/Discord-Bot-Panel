@@ -68,12 +68,14 @@ const searchWeb: ToolDefinition = {
         console.log(`[Tool:search_web] Auto-reading top 3 results for query: "${query}"`);
         const topResults = searchResults.slice(0, 3);
         const detailedResults = [];
+        let puppeteerFailed = false;
 
+        // Try Puppeteer first, fall back to fetch if it fails
         let browser;
         try {
             browser = await puppeteer.launch({
                 headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu']
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
             });
 
             for (const result of topResults) {
@@ -81,8 +83,8 @@ const searchWeb: ToolDefinition = {
                     const page = await browser.newPage();
                     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-                    console.log(`[Tool:search_web] Visiting: ${result.url}`);
-                    await page.goto(result.url, { waitUntil: 'networkidle2', timeout: 15000 });
+                    console.log(`[Tool:search_web] Visiting (Puppeteer): ${result.url}`);
+                    await page.goto(result.url, { waitUntil: 'domcontentloaded', timeout: 15000 });
 
                     const html = await page.content();
                     const $ = cheerio.load(html);
@@ -97,15 +99,49 @@ const searchWeb: ToolDefinition = {
 
                     await page.close();
                 } catch (e: any) {
-                    console.log(`[Tool:search_web] Failed to read ${result.url}: ${e.message}`);
+                    console.log(`[Tool:search_web] Puppeteer failed to read ${result.url}: ${e.message}`);
                     detailedResults.push(result); // Fallback to snippet
                 }
             }
         } catch (error: any) {
-            console.error(`[Tool:search_web] Browser error: ${error.message}`);
-            detailedResults.push(...topResults);
+            console.error(`[Tool:search_web] Puppeteer launch failed: ${error.message}`);
+            puppeteerFailed = true;
         } finally {
-            if (browser) await browser.close();
+            if (browser) {
+                try {
+                    await browser.close();
+                } catch (e) {
+                    console.log(`[Tool:search_web] Error closing browser: ${e}`);
+                }
+            }
+        }
+
+        // Fallback: Use fetch + cheerio if Puppeteer failed completely
+        if (puppeteerFailed && detailedResults.length === 0) {
+            console.log(`[Tool:search_web] Falling back to fetch API for reading pages`);
+            for (const result of topResults) {
+                try {
+                    console.log(`[Tool:search_web] Fetching (fallback): ${result.url}`);
+                    const response = await fetch(result.url, {
+                        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+                    });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                    const html = await response.text();
+                    const $ = cheerio.load(html);
+                    $('script, style, nav, footer, header').remove();
+
+                    const content = $('body').text().replace(/\s+/g, ' ').trim().substring(0, 1500);
+                    detailedResults.push({
+                        title: result.title,
+                        url: result.url,
+                        full_content_snippet: content
+                    });
+                } catch (e: any) {
+                    console.log(`[Tool:search_web] Fetch fallback failed for ${result.url}: ${e.message}`);
+                    detailedResults.push(result); // Final fallback to snippet
+                }
+            }
         }
 
         return JSON.stringify({

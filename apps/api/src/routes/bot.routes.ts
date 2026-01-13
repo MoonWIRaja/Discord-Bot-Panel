@@ -569,6 +569,9 @@ router.post('/ai/deploy-model', async (req, res) => {
         break;
       case 'zanai':
         testUrl = endpoint || 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+        if (endpoint && !testUrl.endsWith('/chat/completions') && !testUrl.includes('/images/generations')) {
+          testUrl = testUrl.replace(/\/$/, '') + (testUrl.includes('/v4') ? '/chat/completions' : '/v1/chat/completions');
+        }
         testBody = { model: modelName, messages: [{ role: 'user', content: 'test' }], max_tokens: 20 };
         headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
         break;

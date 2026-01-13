@@ -38,7 +38,7 @@ export interface AIConfig {
     azureDeployment?: string;
     azureType?: 'auto' | 'openai' | 'anthropic' | 'serverless' | 'inference' | 'github' | 'responses' | 'custom';
     ollamaHost?: string;
-    zanaiEndpoint?: string;
+    endpoint?: string;
 }
 
 export interface AIResponse {
@@ -606,19 +606,19 @@ export const PROVIDER_MODELS: Record<string, Record<string, string[]>> = {
         creative: ['llama3.3', 'mistral']
     },
     zanai: {
-        // Z.AI (智谱) models - GLM series (updated with GLM-4.5 released July 2025)
-        chat: ['glm-4.5', 'glm-4.5-air', 'glm-4-plus', 'glm-4-0520', 'glm-4-air', 'glm-4-airx', 'glm-4-long', 'glm-4-flashx', 'glm-4-flash', 'glm-4'],
-        code: ['glm-4.5', 'codegeex-4', 'glm-4-plus', 'glm-4-0520'],
-        debug: ['glm-4.5', 'glm-4-plus', 'glm-4-0520', 'glm-4'],
+        // Z.AI (智谱) models - GLM series (updated with GLM-4.7 released Nov 2025)
+        chat: ['glm-4.7', 'glm-4-plus', 'glm-4-all', 'glm-4.5', 'glm-4.5-air', 'glm-4-0520', 'glm-4-air', 'glm-4-airx', 'glm-4-long', 'glm-4-flashx', 'glm-4-flash', 'glm-4'],
+        code: ['glm-4.7', 'codegeex-4', 'glm-4-plus', 'glm-4-0520'],
+        debug: ['glm-4.7', 'glm-4-plus', 'glm-4-0520', 'glm-4'],
         image: ['cogview-3-plus', 'cogview-3'],
         video: ['cogvideox'],
         audio: [],
         music: [],
         vision: ['glm-4v-plus', 'glm-4v', 'glm-4v-flash'],
-        translate: ['glm-4.5-air', 'glm-4-flash', 'glm-4'],
-        summarize: ['glm-4.5-air', 'glm-4-flash', 'glm-4-air'],
-        research: ['glm-4.5', 'glm-4-plus', 'glm-4-long'],
-        creative: ['glm-4.5', 'glm-4-plus', 'glm-4']
+        translate: ['glm-4.7-air', 'glm-4-flash', 'glm-4'],
+        summarize: ['glm-4.7-air', 'glm-4-flash', 'glm-4-air'],
+        research: ['glm-4.7', 'glm-4-plus', 'glm-4-long'],
+        creative: ['glm-4.7', 'glm-4-plus', 'glm-4']
     },
     openrouter: {
         // OpenRouter - aggregates many providers, use provider/model format
@@ -672,7 +672,7 @@ export const DEFAULT_MODELS: Record<string, string> = {
     ai21: 'jamba-1.5-large',
     huggingface: 'meta-llama/Llama-3.3-70B-Instruct',
     ollama: 'llama3.3',
-    zanai: 'glm-4.5-air',
+    zanai: 'glm-4-plus',
     openrouter: 'openai/gpt-4o'
 };
 
@@ -847,7 +847,7 @@ export class AIService {
                 case 'mistral':
                 case 'zanai':
                 case 'openrouter':
-                    return await this.chatOpenAICompatible(provider, apiKey, model || DEFAULT_MODELS[provider], allMessages, config.tools, provider === 'zanai' ? config.zanaiEndpoint : undefined);
+                    return await this.chatOpenAICompatible(provider, apiKey, model || DEFAULT_MODELS[provider], allMessages, config.tools, config.endpoint);
                 case 'azure':
                     return await this.chatAzure(config, allMessages);
                 case 'gemini':
@@ -898,6 +898,13 @@ export class AIService {
                 openrouter: 'https://openrouter.ai/api/v1/chat/completions'
             };
             endpoint = endpoints[provider];
+        } else {
+            // Ensure endpoint ends with /chat/completions for OpenAI-compatible providers
+            // This fix ensures Z.AI and other custom endpoints work even if only the base URL is provided
+            if (!endpoint.endsWith('/chat/completions') && !endpoint.includes('/images/generations')) {
+                endpoint = endpoint.replace(/\/$/, '') + (endpoint.includes('/v1') || endpoint.includes('/v4') ? '/chat/completions' : '/v1/chat/completions');
+                console.log(`[AIService] ${provider} adjusted custom endpoint to: ${endpoint}`);
+            }
         }
 
         if (!endpoint) {
@@ -936,7 +943,8 @@ export class AIService {
 
                         // Z.AI and OpenAI: assistant message with tool_calls should have null/empty content
                         if (m.role === 'assistant' && m.tool_calls && !m.content) {
-                            msg.content = null;
+                            // Zhipu AI (zanai) specifically prefers empty string over null for some models
+                            msg.content = provider === 'zanai' ? '' : null;
                         }
 
                         return msg;
