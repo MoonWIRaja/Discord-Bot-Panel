@@ -932,6 +932,12 @@ export class AIService {
                     console.log(`[AIService] Trying model: ${currentModel} (${modelList.indexOf(currentModel) + 1}/${modelList.length})`);
                 }
 
+                // Z.AI (mountly/coding plan) has lower token limits per request
+                const maxTokens = (provider === 'zanai' && endpoint && endpoint.includes('api.z.ai')) ? 1024 : 4096;
+                if (provider === 'zanai' && endpoint && endpoint.includes('api.z.ai')) {
+                    console.log(`[AIService] Using reduced max_tokens=${maxTokens} for mountly Z.AI endpoint`);
+                }
+
                 const requestBody: any = {
                     model: currentModel,
                     messages: messages.map(m => {
@@ -951,7 +957,7 @@ export class AIService {
 
                         return msg;
                     }),
-                    max_tokens: 4096,
+                    max_tokens: maxTokens,
                     tools: tools && tools.length > 0 ? tools : undefined,
                     tool_choice: tools && tools.length > 0 ? 'auto' : undefined
                 };
