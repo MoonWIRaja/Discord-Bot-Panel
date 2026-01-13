@@ -32,12 +32,12 @@ setInterval(() => {
 
 const generateFileTool: ToolDefinition = {
     name: 'generate_file',
-    description: '📁 FILE GENERATOR - Creates code files. Use DIRECTLY when user asks to create apps, websites, scripts. DO NOT ask questions.\n\nSINGLE FILE examples: "create an HTML calculator", "make a Python script", "an HTML page"\n\nMULTI-FILE examples: "create a React app", "build a full stack todo app", "make a Node.js API"\n\nFor single files → sends individual file. For multi-file projects → sends ZIP with proper folder structure.',
+    description: '📁 FILE GENERATOR - Creates code files and sends them immediately. Use DIRECTLY when user asks to create apps, websites, scripts. DO NOT ask questions.\n\nSINGLE FILE examples: "create an HTML calculator", "make a Python script", "an HTML page"\n\nMULTI-FILE examples: "create a React app", "build a full stack todo app", "make a Node.js API"\n\nFor single files → sends individual file immediately. For multi-file projects → sends ZIP with proper folder structure immediately.',
     category: 'utility',
     parameters: {
         action: {
             type: 'string',
-            description: 'Action: "create" (generate new), "send" (send files)',
+            description: 'Action: "create" to generate and send files immediately',
             required: true
         },
         prompt: {
@@ -58,11 +58,6 @@ const generateFileTool: ToolDefinition = {
         description: {
             type: 'string',
             description: 'Additional requirements',
-            required: false
-        },
-        sessionId: {
-            type: 'string',
-            description: 'Session ID for multi-file projects',
             required: false
         }
     },
@@ -118,7 +113,31 @@ const generateFileTool: ToolDefinition = {
                 const isSingle = files.length === 1;
                 const isMulti = files.length > 1;
 
-                return `✅ **Code Generated!** 🗂️
+                // Prepare files for immediate sending (don't require "send" action)
+                const filesToSend: Array<{ name: string; content: string; size: number }> = [];
+
+                if (isSingle) {
+                    const file = files[0];
+                    filesToSend.push({
+                        name: file.path,
+                        content: Buffer.from(file.content).toString('base64'),
+                        size: file.content.length
+                    });
+                } else {
+                    // Multi-file → Create ZIP
+                    const zipBuffer = await createProperZip(files, prompt);
+                    const zipName = `${sanitizeFilename(prompt.substring(0, 30))}_project.zip`;
+                    filesToSend.push({
+                        name: zipName,
+                        content: zipBuffer.toString('base64'),
+                        size: zipBuffer.length
+                    });
+                }
+
+                console.log(`[Tool:generate_file] Created ${files.length} file(s), sending immediately`);
+
+                return {
+                    content: `✅ **Code Generated!** 🗂️
 
 📝 **Project:** ${prompt.substring(0, 60)}${prompt.length > 60 ? '...' : ''}
 🔧 **Stack:** ${lang}
@@ -127,9 +146,9 @@ const generateFileTool: ToolDefinition = {
 **Project Structure:**
 ${fileList}
 
-💬 **Type "send"** to download${isSingle ? ' the file' : ' ZIP with all files ready to use!'}!
-
-${isMulti ? '📦 ZIP will have proper folder structure - just extract and run!' : ''}`;
+📎 **File${isSingle ? '' : 's'} attached below!**${isMulti ? ' 📦 Extract the ZIP and run!' : ''}`,
+                    files: filesToSend
+                };
             }
 
             if (action === 'send') {
