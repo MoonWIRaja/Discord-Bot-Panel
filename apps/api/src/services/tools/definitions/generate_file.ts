@@ -1,5 +1,8 @@
 import { ToolDefinition, ToolRegistry, ToolResult } from '../registry.js';
 import { AIService } from '../../ai.service.js';
+import { db } from '../../../db/index.js';
+import { bots } from '../../../db/schema.js';
+import { eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { rm, mkdir } from 'fs/promises';
 import { join } from 'path';
@@ -82,7 +85,7 @@ const generateFileTool: ToolDefinition = {
                 if (wantsSingleFile) {
                     // Single file request
                     const defaultFilename = filename || getDefaultFilename(lang, prompt);
-                    const code = await generateFileContent(defaultFilename, prompt, lang, description);
+                    const code = await generateFileContent(defaultFilename, prompt, lang, description, botId);
                     files.push({
                         path: defaultFilename,
                         content: code,
@@ -92,7 +95,7 @@ const generateFileTool: ToolDefinition = {
                     // Multi-file project with proper folder structure
                     const projectStructure = generateProjectStructure(prompt, lang);
                     for (const file of projectStructure) {
-                        const code = await generateFileContent(file.name, prompt, lang, description);
+                        const code = await generateFileContent(file.name, prompt, lang, description, botId);
                         files.push({
                             path: file.path || file.name,
                             content: code,
@@ -357,9 +360,9 @@ async function createProperZip(files: Array<{ path: string; content: string }>, 
 }
 
 /**
- * Generate content for a file
+ * Generate content for a file using the bot's configured AI provider
  */
-async function generateFileContent(filename: string, projectPrompt: string, lang: string, additionalDesc: string): Promise<string> {
+async function generateFileContent(filename: string, projectPrompt: string, lang: string, additionalDesc: string, botId: string): Promise<string> {
     // Generate config files locally
     if (filename === 'package.json') {
         return generatePackageJson(projectPrompt, lang);
@@ -392,7 +395,15 @@ async function generateFileContent(filename: string, projectPrompt: string, lang
         return generatePublicIndex();
     }
 
-    // Use AI to generate code
+    // Use AI to generate code - get the bot's configured provider from database
+    const bot = await db.select().from(bots).where(eq(bots.id, botId));
+    if (!bot[0]) {
+        return `// Error: Bot not found for code generation\n// File: ${filename}`;
+    }
+
+    const config = typeof bot[0].config === 'string' ? JSON.parse(bot[0].config) : bot[0].config;
+    const aiConfig = config.ai || {};
+
     const systemPrompt = `You are an expert developer. Generate complete, working code.
 
 CRITICAL RULES:
@@ -410,9 +421,10 @@ Output format: JUST the raw code, nothing else.`;
 
     try {
         const response = await AIService.chat({
-            provider: 'openai',
-            apiKey: 'dummy',
-            model: 'gpt-4'
+            provider: aiConfig.provider || 'openai',
+            apiKey: aiConfig.apiKey || '',
+            model: aiConfig.model || 'gpt-4',
+            endpoint: aiConfig.endpoint
         }, [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `Generate: ${filename}\n${additionalDesc || ''}` }
