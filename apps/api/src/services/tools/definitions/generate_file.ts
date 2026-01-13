@@ -438,10 +438,20 @@ Language: ${lang}
 Output format: JUST the raw code, nothing else.`;
 
     try {
+        // Get the provider type (generic provider like 'azure', 'openai', 'gemini', etc)
+        const genericProviderId = providerConfig.provider || defaultProviderId || 'openai';
+
+        // Azure uses deployment names, NOT model names - always use empty model for Azure
+        let chatModel = '';
+        if (genericProviderId !== 'azure') {
+            // For non-Azure providers, get the chat model from config
+            chatModel = providerConfig.models?.chat || providerConfig.models?.auto || '';
+        }
+
         const response = await AIService.chat({
-            provider: providerConfig.provider || providerConfig.id || 'openai',
+            provider: genericProviderId as any,
             apiKey: apiKey,
-            model: providerConfig.models?.chat || providerConfig.models?.auto || '',
+            model: chatModel,
             mode: 'chat' as const,
             azureEndpoint: providerConfig.azureEndpoint || providerConfig.endpoint || '',
             azureDeployment: providerConfig.azureDeployment || '',
