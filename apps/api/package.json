@@ -9,10 +9,10 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "tsx src/seed-templates.ts",
-    "db:generate": "npx tsx node_modules/drizzle-kit/bin.cjs generate --config=drizzle.config.mjs",
-    "db:migrate": "npx tsx node_modules/drizzle-kit/bin.cjs migrate --config=drizzle.config.mjs",
-    "db:push": "npx tsx node_modules/drizzle-kit/bin.cjs push --config=drizzle.config.mjs",
-    "db:studio": "npx tsx node_modules/drizzle-kit/bin.cjs studio --config=drizzle.config.mjs"
+    "db:generate": "npx tsx node_modules/drizzle-kit/bin.cjs generate --config=drizzle.config.cjs",
+    "db:migrate": "npx tsx node_modules/drizzle-kit/bin.cjs migrate --config=drizzle.config.cjs",
+    "db:push": "npx tsx node_modules/drizzle-kit/bin.cjs push --config=drizzle.config.cjs",
+    "db:studio": "npx tsx node_modules/drizzle-kit/bin.cjs studio --config=drizzle.config.cjs"
   },
   "dependencies": {
     "@discordjs/voice": "^0.19.0",
