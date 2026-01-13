@@ -1776,10 +1776,11 @@
                                     />
                                 </div>
                             {/if}
+                            <!-- Azure Endpoint -->
                             {#if selectedNode.data.provider === 'azure'}
                                 <div>
                                     <label for="ai-azure-endpoint" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Azure Endpoint</label>
-                                    <input 
+                                    <input
                                         id="ai-azure-endpoint"
                                         type="text"
                                         value={selectedNode.data.azureEndpoint || ''}
@@ -1787,20 +1788,39 @@
                                         placeholder="https://your-resource.openai.azure.com"
                                         class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm"
                                     />
+                                    <p class="text-[10px] text-gray-500 mt-1">Your Azure OpenAI resource endpoint URL</p>
                                 </div>
                             {/if}
+
+                            <!-- Z.AI Custom Endpoint -->
                             {#if selectedNode.data.provider === 'zanai'}
                                 <div>
-                                    <label for="ai-endpoint" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">API Endpoint</label>
-                                    <input 
-                                        id="ai-endpoint"
+                                    <label for="ai-zanai-endpoint" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Z.AI Endpoint (Optional)</label>
+                                    <input
+                                        id="ai-zanai-endpoint"
                                         type="text"
                                         value={selectedNode.data.endpoint || selectedNode.data.zanaiEndpoint || ''}
                                         oninput={(e) => updateNodeData('endpoint', e.currentTarget.value)}
                                         placeholder="https://open.bigmodel.cn/api/paas/v4"
                                         class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm"
                                     />
-                                    <p class="text-[10px] text-gray-500 mt-1 italic">Manual API Endpoint (智谱). Set it here instead of having it hidden.</p>
+                                    <p class="text-[10px] text-gray-500 mt-1">Custom Z.AI (智谱) API endpoint. Leave empty for default.</p>
+                                </div>
+                            {/if}
+
+                            <!-- OpenRouter Custom Endpoint -->
+                            {#if selectedNode.data.provider === 'openrouter'}
+                                <div>
+                                    <label for="ai-openrouter-endpoint" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">OpenRouter Endpoint (Optional)</label>
+                                    <input
+                                        id="ai-openrouter-endpoint"
+                                        type="text"
+                                        value={selectedNode.data.endpoint || selectedNode.data.openrouterEndpoint || ''}
+                                        oninput={(e) => updateNodeData('endpoint', e.currentTarget.value)}
+                                        placeholder="https://openrouter.ai/api/v1"
+                                        class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm"
+                                    />
+                                    <p class="text-[10px] text-gray-500 mt-1">Custom OpenRouter API endpoint. Leave empty for default.</p>
                                 </div>
                             {/if}
                             <button
@@ -2022,6 +2042,52 @@
                                     />
                                 </div>
                             {/if}
+
+                            <!-- Azure Endpoint for AI Mode -->
+                            {#if selectedNode.data.provider === 'azure'}
+                                <div>
+                                    <label for="ai-mode-azure-endpoint" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Azure Endpoint</label>
+                                    <input
+                                        id="ai-mode-azure-endpoint"
+                                        type="text"
+                                        value={selectedNode.data.azureEndpoint || ''}
+                                        oninput={(e) => updateNodeData('azureEndpoint', e.currentTarget.value)}
+                                        placeholder="https://your-resource.openai.azure.com"
+                                        class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm"
+                                    />
+                                </div>
+                            {/if}
+
+                            <!-- Z.AI Endpoint for AI Mode -->
+                            {#if selectedNode.data.provider === 'zanai'}
+                                <div>
+                                    <label for="ai-mode-zanai-endpoint" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Z.AI Endpoint (Optional)</label>
+                                    <input
+                                        id="ai-mode-zanai-endpoint"
+                                        type="text"
+                                        value={selectedNode.data.endpoint || selectedNode.data.zanaiEndpoint || ''}
+                                        oninput={(e) => updateNodeData('endpoint', e.currentTarget.value)}
+                                        placeholder="https://open.bigmodel.cn/api/paas/v4"
+                                        class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm"
+                                    />
+                                </div>
+                            {/if}
+
+                            <!-- OpenRouter Endpoint for AI Mode -->
+                            {#if selectedNode.data.provider === 'openrouter'}
+                                <div>
+                                    <label for="ai-mode-openrouter-endpoint" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">OpenRouter Endpoint (Optional)</label>
+                                    <input
+                                        id="ai-mode-openrouter-endpoint"
+                                        type="text"
+                                        value={selectedNode.data.endpoint || selectedNode.data.openrouterEndpoint || ''}
+                                        oninput={(e) => updateNodeData('endpoint', e.currentTarget.value)}
+                                        placeholder="https://openrouter.ai/api/v1"
+                                        class="w-full bg-dark-base border border-dark-border rounded-lg px-3 py-2 text-white text-sm"
+                                    />
+                                </div>
+                            {/if}
+
                             <div>
                                 <label for="ai-mode-select" class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Mode</label>
                                 <select 
@@ -2036,7 +2102,12 @@
                                 </select>
                             </div>
                             <button
-                                onclick={() => fetchProviderModels(selectedNode?.id || '', String(selectedNode?.data.provider || 'gemini'), String(selectedNode?.data.apiKey || ''), '')}
+                                onclick={() => fetchProviderModels(
+                                    selectedNode?.id || '',
+                                    String(selectedNode?.data.provider || 'gemini'),
+                                    String(selectedNode?.data.apiKey || ''),
+                                    String(selectedNode?.data.endpoint || selectedNode?.data.zanaiEndpoint || selectedNode?.data.azureEndpoint || selectedNode?.data.openrouterEndpoint || '')
+                                )}
                                 disabled={loadingFetchModels || !selectedNode?.data.apiKey}
                                 class="w-full py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded-lg disabled:opacity-50"
                             >

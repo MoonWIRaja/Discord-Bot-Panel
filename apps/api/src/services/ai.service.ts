@@ -39,6 +39,8 @@ export interface AIConfig {
     azureType?: 'auto' | 'openai' | 'anthropic' | 'serverless' | 'inference' | 'github' | 'responses' | 'custom';
     ollamaHost?: string;
     endpoint?: string;
+    zanaiEndpoint?: string;  // Z.AI custom endpoint
+    openrouterEndpoint?: string;  // OpenRouter custom endpoint
 }
 
 export interface AIResponse {

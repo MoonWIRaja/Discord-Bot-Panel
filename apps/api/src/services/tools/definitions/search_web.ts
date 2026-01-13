@@ -1,15 +1,11 @@
 import { search, SafeSearchType } from 'duck-duck-scrape';
 import { ToolDefinition, ToolRegistry } from '../registry.js';
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import puppeteer from 'puppeteer';
 import * as cheerio from 'cheerio';
-
-// Initialize puppeteer-extra with stealth plugin
-(puppeteer as any).use(StealthPlugin());
 
 const searchWeb: ToolDefinition = {
     name: 'search_web',
-    description: 'Advanced web search with deep-reading. This tool not only searches but also automatically visits and reads the top results using a professional stealth browser to provide the most accurate and up-to-date information.',
+    description: 'Advanced web search with deep-reading. This tool not only searches but also automatically visits and reads the top results to provide the most accurate and up-to-date information.',
     category: 'search',
     parameters: {
         query: {

@@ -1776,7 +1776,11 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                                 user: message.author.username,
                                 details: { args: functionArgs }
                             });
-                            toolResult = await tool.handler(functionArgs);
+                            toolResult = await tool.handler(functionArgs, {
+                                botId,
+                                userId: message.author.id,
+                                channelId: message.channel.id
+                            });
                         } catch (error: any) {
                             toolResult = `Error executing tool: ${error.message}`;
                         }

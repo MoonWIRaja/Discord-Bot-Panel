@@ -1,14 +1,10 @@
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import puppeteer from 'puppeteer';
 import * as cheerio from 'cheerio';
 import { ToolDefinition, ToolRegistry } from '../registry.js';
 
-// Initialize puppeteer-extra with stealth plugin
-(puppeteer as any).use(StealthPlugin());
-
 const readWebpage: ToolDefinition = {
     name: 'read_webpage',
-    description: 'Read and extract full text content from any webpage URL. Use this to get detailed information from news articles, blog posts, documentation, or any website. This tool uses a professional stealth browser to bypass bot detection and handle JavaScript-heavy sites.',
+    description: 'Read and extract full text content from any webpage URL. Use this to get detailed information from news articles, blog posts, documentation, or any website. This tool uses a real browser to handle JavaScript-heavy sites.',
     category: 'search',
     parameters: {
         url: {
@@ -27,11 +23,11 @@ const readWebpage: ToolDefinition = {
         let puppeteerResult = null;
         let puppeteerError = null;
 
-        // === Try Puppeteer (Pro Mode with Stealth) ===
-        console.log(`[Tool:read_webpage] Using Stealth Puppeteer for: ${url}`);
+        // === Try Puppeteer ===
+        console.log(`[Tool:read_webpage] Using Puppeteer for: ${url}`);
         let browser;
         try {
-            browser = await (puppeteer as any).launch({
+            browser = await puppeteer.launch({
                 headless: true,
                 args: [
                     '--no-sandbox',

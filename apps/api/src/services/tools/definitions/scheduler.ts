@@ -1,7 +1,7 @@
 import { ToolDefinition, ToolRegistry } from '../registry.js';
 import { db } from '../../../db/index.js';
 import { aiScheduler } from '../../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
 const schedulerTool: ToolDefinition = {
@@ -61,16 +61,14 @@ const schedulerTool: ToolDefinition = {
 
             if (action === 'delete') {
                 await db.delete(aiScheduler)
-                    .where(eq(aiScheduler.botId, botId))
-                    .where(eq(aiScheduler.taskName, taskName));
+                    .where(and(eq(aiScheduler.botId, botId), eq(aiScheduler.taskName, taskName)));
                 return `Task "${taskName}" has been deleted.`;
             }
 
             if (action === 'pause' || action === 'resume') {
                 await db.update(aiScheduler)
                     .set({ status: action === 'pause' ? 'paused' : 'active', updatedAt: new Date() })
-                    .where(eq(aiScheduler.botId, botId))
-                    .where(eq(aiScheduler.taskName, taskName));
+                    .where(and(eq(aiScheduler.botId, botId), eq(aiScheduler.taskName, taskName)));
                 return `Task "${taskName}" has been ${action === 'pause' ? 'paused' : 'resumed'}.`;
             }
 
