@@ -23,6 +23,9 @@ import './definitions/get_anime_info.js';
 import './definitions/get_horoscope.js';
 import './definitions/get_github_repo.js';
 import './definitions/detect_language.js';
+// Utility tools
+import './definitions/scheduler.js';
+import './definitions/generate_file.js';
 
 export { ToolRegistry };
 export * from './registry.js';
