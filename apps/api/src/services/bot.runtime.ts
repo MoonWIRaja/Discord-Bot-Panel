@@ -3296,6 +3296,10 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                     }
 
                     console.log(`[BotRuntime] Public chat - Provider: ${selectedProviderConfig.label || selectedProviderConfig.id}, Model: ${selectedModel}, Intent: ${detectedMode}`);
+
+                    // Debug: Log provider config to see if endpoint is saved
+                    const resolvedEndpoint = selectedProviderConfig.endpoint || selectedProviderConfig.zanaiEndpoint || '';
+                    console.log(`[BotRuntime] Provider endpoint config: endpoint=${selectedProviderConfig.endpoint || 'undefined'}, zanaiEndpoint=${selectedProviderConfig.zanaiEndpoint || 'undefined'}, resolved=${resolvedEndpoint || 'EMPTY'}`);
                 }
 
                 // Initial chat call - use the selected provider config
