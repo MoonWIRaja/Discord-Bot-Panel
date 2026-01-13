@@ -1,10 +1,14 @@
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import * as cheerio from 'cheerio';
 import { ToolDefinition, ToolRegistry } from '../registry.js';
 
+// Initialize puppeteer-extra with stealth plugin
+puppeteer.use(StealthPlugin());
+
 const readWebpage: ToolDefinition = {
     name: 'read_webpage',
-    description: 'Read and extract full text content from any webpage URL. Use this to get detailed information from news articles, blog posts, documentation, or any website. This tool uses a real browser to handle JavaScript-heavy sites.',
+    description: 'Read and extract full text content from any webpage URL. Use this to get detailed information from news articles, blog posts, documentation, or any website. This tool uses a professional stealth browser to bypass bot detection and handle JavaScript-heavy sites.',
     category: 'search',
     parameters: {
         url: {
@@ -23,12 +27,12 @@ const readWebpage: ToolDefinition = {
         let puppeteerResult = null;
         let puppeteerError = null;
 
-        // === Try Puppeteer ===
-        console.log(`[Tool:read_webpage] Trying Puppeteer for: ${url}`);
+        // === Try Puppeteer (Pro Mode with Stealth) ===
+        console.log(`[Tool:read_webpage] Using Stealth Puppeteer for: ${url}`);
         let browser;
         try {
-            browser = await puppeteer.launch({
-                headless: 'new',
+            browser = await (puppeteer as any).launch({
+                headless: true,
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
@@ -36,21 +40,52 @@ const readWebpage: ToolDefinition = {
                     '--disable-accelerated-2d-canvas',
                     '--no-first-run',
                     '--no-zygote',
-                    '--disable-gpu'
+                    '--disable-gpu',
+                    '--window-size=1280,800'
                 ]
             });
 
             const page = await browser.newPage();
-            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-            await page.goto(url, {
-                waitUntil: 'domcontentloaded',
-                timeout: 30000
+            // Set extra headers and user agent to look real
+            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+            await page.setExtraHTTPHeaders({
+                'Accept-Language': 'en-US,en;q=0.9',
             });
+
+            // Set viewport
+            await page.setViewport({ width: 1280, height: 800 });
+
+            console.log(`[Tool:read_webpage] Navigating to: ${url}`);
+            await page.goto(url, {
+                waitUntil: 'networkidle2', // Wait for network to be idle
+                timeout: 45000
+            });
+
+            // Handle JS-heavy sites (like krackeddev.com) that might have a loading screen
+            // We'll wait a bit more and check if the body has content or specific loading tags
+            console.log(`[Tool:read_webpage] Waiting for page to stabilize...`);
+            await new Promise(r => setTimeout(r, 3000)); // Baseline wait for animations/initial JS
+
+            // Special check: if the page is still "Loading", wait longer
+            const isLoading = await page.evaluate(() => {
+                const text = document.body.innerText.toLowerCase();
+                return text.includes('loading') && text.length < 500;
+            });
+
+            if (isLoading) {
+                console.log(`[Tool:read_webpage] Page seems to be loading, waiting up to 10 more seconds...`);
+                await new Promise(r => setTimeout(r, 7000));
+            }
+
+            // Scroll down a bit to trigger lazy loading
+            await page.evaluate(() => window.scrollBy(0, 500));
+            await new Promise(r => setTimeout(r, 1000));
 
             const html = await page.content();
             const $ = cheerio.load(html);
 
+            // Clean up the DOM
             $('script, style, nav, header, footer, aside, iframe, noscript, .ads, .advertisement, .sidebar, .menu, .navigation').remove();
 
             const title = $('title').text().trim() || $('h1').first().text().trim() || 'No title';
@@ -60,7 +95,7 @@ const readWebpage: ToolDefinition = {
             let mainContent = '';
             const contentSelectors = [
                 'article', 'main', '.content', '.post-content', '.article-content',
-                '.entry-content', '#content', '.story-body', '.article-body'
+                '.entry-content', '#content', '.story-body', '.article-body', '.main-container'
             ];
 
             for (const selector of contentSelectors) {
@@ -71,7 +106,7 @@ const readWebpage: ToolDefinition = {
                 }
             }
 
-            if (!mainContent) {
+            if (!mainContent || mainContent.length < 200) {
                 mainContent = $('body').text();
             }
 
@@ -80,7 +115,7 @@ const readWebpage: ToolDefinition = {
                 .replace(/\n\s*\n/g, '\n')
                 .trim();
 
-            const maxLength = 8000;
+            const maxLength = 10000;
             if (mainContent.length > maxLength) {
                 mainContent = mainContent.substring(0, maxLength) + '... [content truncated]';
             }

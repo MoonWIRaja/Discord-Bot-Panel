@@ -1,11 +1,15 @@
 import { search, SafeSearchType } from 'duck-duck-scrape';
 import { ToolDefinition, ToolRegistry } from '../registry.js';
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import * as cheerio from 'cheerio';
+
+// Initialize puppeteer-extra with stealth plugin
+puppeteer.use(StealthPlugin());
 
 const searchWeb: ToolDefinition = {
     name: 'search_web',
-    description: 'Advanced web search with deep-reading. This tool not only searches but also automatically visits and reads the top results to provide the most accurate and up-to-date information.',
+    description: 'Advanced web search with deep-reading. This tool not only searches but also automatically visits and reads the top results using a professional stealth browser to provide the most accurate and up-to-date information.',
     category: 'search',
     parameters: {
         query: {
@@ -17,6 +21,7 @@ const searchWeb: ToolDefinition = {
     handler: async ({ query }: { query: string }) => {
         const tavilyKey = process.env.TAVILY_API_KEY;
         let searchResults: any[] = [];
+        let searchNote = '';
 
         if (tavilyKey) {
             console.log(`[Tool:search_web] Searching Tavily for: "${query}"`);
@@ -41,7 +46,11 @@ const searchWeb: ToolDefinition = {
                 }
             } catch (error: any) {
                 console.error(`[Tool:search_web] Tavily failed: ${error.message}`);
+                searchNote = `Tavily search failed: ${error.message}. `;
             }
+        } else {
+            console.log(`[Tool:search_web] Tavily key missing, using DuckDuckGo`);
+            searchNote = "Tavily API key missing. Suggest adding TAVILY_API_KEY to .env for better search. ";
         }
 
         if (searchResults.length === 0) {
@@ -57,11 +66,12 @@ const searchWeb: ToolDefinition = {
                 }
             } catch (error: any) {
                 console.error(`[Tool:search_web] DuckDuckGo failed: ${error.message}`);
+                searchNote += `DuckDuckGo failed: ${error.message}`;
             }
         }
 
         if (searchResults.length === 0) {
-            return "No search results found.";
+            return `No search results found. ${searchNote}`.trim();
         }
 
         // AUTO-READ OVERKILL FEATURE: Visit top 3 URLs to get full context
@@ -73,24 +83,30 @@ const searchWeb: ToolDefinition = {
         // Try Puppeteer first, fall back to fetch if it fails
         let browser;
         try {
-            browser = await puppeteer.launch({
+            browser = await (puppeteer as any).launch({
                 headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--window-size=1280,800']
             });
 
             for (const result of topResults) {
                 try {
                     const page = await browser.newPage();
-                    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+                    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
 
-                    console.log(`[Tool:search_web] Visiting (Puppeteer): ${result.url}`);
-                    await page.goto(result.url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+                    // Set viewport
+                    await page.setViewport({ width: 1280, height: 800 });
+
+                    console.log(`[Tool:search_web] Visiting (Stealth Puppeteer): ${result.url}`);
+                    await page.goto(result.url, { waitUntil: 'networkidle2', timeout: 20000 });
+
+                    // Stabilization wait
+                    await new Promise(r => setTimeout(r, 2000));
 
                     const html = await page.content();
                     const $ = cheerio.load(html);
                     $('script, style, nav, footer, header').remove();
 
-                    const content = $('body').text().replace(/\s+/g, ' ').trim().substring(0, 1500);
+                    const content = $('body').text().replace(/\s+/g, ' ').trim().substring(0, 2000);
                     detailedResults.push({
                         title: result.title,
                         url: result.url,
