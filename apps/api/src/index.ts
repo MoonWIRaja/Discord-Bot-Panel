@@ -76,7 +76,9 @@ app.use("/api/payments", express.json(), paymentRoutes);
 export const io = initializeSocketServer(httpServer);
 import { BotRuntime } from './services/bot.runtime.js';
 import { runMigrations } from './db/index.js';
+import { SchedulerService } from './services/scheduler.service.js';
 BotRuntime.setIO(io);
+SchedulerService.start();
 
 // Run migrations and start server
 runMigrations().then(async () => {

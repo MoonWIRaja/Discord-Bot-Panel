@@ -7,11 +7,17 @@ export interface ToolArgument {
     enum?: string[];
 }
 
+export interface ToolContext {
+    botId: string;
+    userId: string;
+    channelId: string;
+}
+
 export interface ToolDefinition {
     name: string;
     description: string;
     parameters: Record<string, ToolArgument>;
-    handler: (args: any) => Promise<string>;
+    handler: (args: any, context: ToolContext) => Promise<string>;
     category?: 'utility' | 'search' | 'info' | 'fun';
 }
 

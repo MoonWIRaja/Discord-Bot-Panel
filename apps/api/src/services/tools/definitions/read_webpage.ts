@@ -1,10 +1,10 @@
-import axios from 'axios';
+import puppeteer from 'puppeteer';
 import * as cheerio from 'cheerio';
 import { ToolDefinition, ToolRegistry } from '../registry.js';
 
 const readWebpage: ToolDefinition = {
     name: 'read_webpage',
-    description: 'Read and extract full text content from any webpage URL. Use this to get detailed information from news articles, blog posts, documentation, or any website.',
+    description: 'Read and extract full text content from any webpage URL. Use this to get detailed information from news articles, blog posts, documentation, or any website. This tool uses a real browser to handle JavaScript-heavy sites.',
     category: 'search',
     parameters: {
         url: {
@@ -14,25 +14,41 @@ const readWebpage: ToolDefinition = {
         }
     },
     handler: async ({ url }: { url: string }) => {
-        console.log(`[Tool:read_webpage] Fetching: ${url}`);
-        try {
-            // Validate URL
-            if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                return 'Invalid URL. Please provide a full URL starting with http:// or https://';
-            }
+        console.log(`[Tool:read_webpage] Fetching (Puppeteer): ${url}`);
 
-            // Fetch the webpage with a reasonable timeout
-            const response = await axios.get(url, {
-                timeout: 15000,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.5'
-                },
-                maxRedirects: 5
+        // Validate URL
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            return 'Invalid URL. Please provide a full URL starting with http:// or https://';
+        }
+
+        let browser;
+        try {
+            browser = await puppeteer.launch({
+                headless: true,
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--disable-gpu'
+                ]
             });
 
-            const html = response.data;
+            const page = await browser.newPage();
+
+            // Set a realistic User-Agent
+            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+            // Navigate to URL
+            await page.goto(url, {
+                waitUntil: 'networkidle2',
+                timeout: 30000
+            });
+
+            // Get HTML content after JS execution
+            const html = await page.content();
             const $ = cheerio.load(html);
 
             // Remove unwanted elements
@@ -44,18 +60,10 @@ const readWebpage: ToolDefinition = {
             const ogDescription = $('meta[property="og:description"]').attr('content') || '';
 
             // Extract main content
-            // Try common content selectors first
             let mainContent = '';
             const contentSelectors = [
-                'article',
-                'main',
-                '.content',
-                '.post-content',
-                '.article-content',
-                '.entry-content',
-                '#content',
-                '.story-body',
-                '.article-body'
+                'article', 'main', '.content', '.post-content', '.article-content',
+                '.entry-content', '#content', '.story-body', '.article-body'
             ];
 
             for (const selector of contentSelectors) {
@@ -66,18 +74,16 @@ const readWebpage: ToolDefinition = {
                 }
             }
 
-            // Fallback to body if no main content found
             if (!mainContent) {
                 mainContent = $('body').text();
             }
 
             // Clean up the text
             mainContent = mainContent
-                .replace(/\s+/g, ' ')  // Collapse whitespace
-                .replace(/\n\s*\n/g, '\n')  // Remove empty lines
+                .replace(/\s+/g, ' ')
+                .replace(/\n\s*\n/g, '\n')
                 .trim();
 
-            // Limit content length to avoid token overflow (max ~8000 chars)
             const maxLength = 8000;
             if (mainContent.length > maxLength) {
                 mainContent = mainContent.substring(0, maxLength) + '... [content truncated]';
@@ -95,16 +101,11 @@ const readWebpage: ToolDefinition = {
 
         } catch (error: any) {
             console.error(`[Tool:read_webpage] Error:`, error.message);
-            if (error.code === 'ECONNABORTED') {
-                return `Timeout: The webpage took too long to respond.`;
-            }
-            if (error.response?.status === 403) {
-                return `Access denied: This website blocks automated requests.`;
-            }
-            if (error.response?.status === 404) {
-                return `Page not found: The URL does not exist.`;
-            }
             return `Failed to read webpage: ${error.message}`;
+        } finally {
+            if (browser) {
+                await browser.close();
+            }
         }
     }
 };

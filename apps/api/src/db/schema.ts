@@ -291,3 +291,18 @@ export const aiKnowledgeBase = pgTable('ai_knowledge_base', {
 	createdAt: timestamp('created_at').defaultNow(),
 	updatedAt: timestamp('updated_at').defaultNow()
 });
+export const aiScheduler = pgTable('ai_scheduler', {
+	id: text('id').primaryKey(),
+	botId: text('bot_id').notNull().references(() => bots.id, { onDelete: 'cascade' }),
+	userId: text('user_id').notNull(),
+	channelId: text('channel_id').notNull(),
+	taskName: text('task_name').notNull(),
+	taskDescription: text('task_description'),
+	cronExpression: text('cron_expression').notNull(),
+	nextRunAt: timestamp('next_run_at'),
+	lastRunAt: timestamp('last_run_at'),
+	status: text('status').default('active'), // active, paused, completed
+	metadata: jsonb('metadata'), // e.g., Malaysia timezone, specific announcement text
+	createdAt: timestamp('created_at').defaultNow(),
+	updatedAt: timestamp('updated_at').defaultNow()
+});

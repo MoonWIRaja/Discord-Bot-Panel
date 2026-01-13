@@ -3301,7 +3301,11 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                                     user: message.author.username,
                                     details: { args: functionArgs }
                                 });
-                                toolResult = await tool.handler(functionArgs);
+                                toolResult = await tool.handler(functionArgs, {
+                                    botId,
+                                    userId: message.author.id,
+                                    channelId: message.channel.id
+                                });
                             } catch (error: any) {
                                 toolResult = `Error executing tool: ${error.message}`;
                             }
@@ -3331,13 +3335,13 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                         tools: tools
                     }, messages);
 
-                    if (result.content) {
+                    if (result.content && (!result.toolCalls || result.toolCalls.length === 0)) {
                         if (fullResponse) fullResponse += '\n\n';
                         fullResponse += result.content;
                     }
                 }
 
-                // If no tool calls were made or final result is different
+                // Final check - if we have no response but have content in the last result, use it
                 const finalResponse = fullResponse || result.content;
 
                 if (!result.error && finalResponse) {

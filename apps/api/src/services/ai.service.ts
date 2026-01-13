@@ -195,7 +195,7 @@ export const AI_PROVIDERS = {
     zanai: {
         id: 'zanai',
         name: 'Z.AI (智谱)',
-        endpoint: 'https://api.z.ai/api/paas/v4',
+        endpoint: 'https://open.bigmodel.cn/api/paas/v4',
         supportsImage: true,
         supportsVideo: false,
         supportsAudio: false
@@ -894,7 +894,7 @@ export class AIService {
                 deepseek: 'https://api.deepseek.com/v1/chat/completions',
                 xai: 'https://api.x.ai/v1/chat/completions',
                 mistral: 'https://api.mistral.ai/v1/chat/completions',
-                zanai: 'https://api.z.ai/api/paas/v4/chat/completions',
+                zanai: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
                 openrouter: 'https://openrouter.ai/api/v1/chat/completions'
             };
             endpoint = endpoints[provider];
@@ -2065,5 +2065,40 @@ OUTPUT: A detailed technical description that could be used to recreate this ima
         const data = await response.json();
         console.log(`[AIService] Groq transcription completed`);
         return { text: data.text };
+    }
+    /**
+     * Split a long message into chunks for Discord (2000 char limit)
+     */
+    static chunkMessage(text: string, size: number = 2000): string[] {
+        if (!text) return [''];
+        if (text.length <= size) return [text];
+
+        const chunks: string[] = [];
+        let current = text;
+
+        while (current.length > 0) {
+            if (current.length <= size) {
+                chunks.push(current);
+                break;
+            }
+
+            // Try to split at newline
+            let splitIndex = current.lastIndexOf('\n', size);
+
+            // If no newline found, try to split at space
+            if (splitIndex === -1 || splitIndex < size * 0.5) {
+                splitIndex = current.lastIndexOf(' ', size);
+            }
+
+            // If still no good split point, just cut at size
+            if (splitIndex === -1 || splitIndex === 0) {
+                splitIndex = size;
+            }
+
+            chunks.push(current.substring(0, splitIndex).trim());
+            current = current.substring(splitIndex).trim();
+        }
+
+        return chunks;
     }
 }
