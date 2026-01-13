@@ -898,10 +898,15 @@ export class AIService {
                 deepseek: 'https://api.deepseek.com/v1/chat/completions',
                 xai: 'https://api.x.ai/v1/chat/completions',
                 mistral: 'https://api.mistral.ai/v1/chat/completions',
-                zanai: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',  // Zhipu AI (China) - for global, use custom endpoint
+                // zanai: NO DEFAULT - user must provide custom endpoint (Mountly, global, etc.)
                 openrouter: 'https://openrouter.ai/api/v1/chat/completions'
             };
             endpoint = endpoints[provider];
+
+            // Z.AI requires custom endpoint
+            if (provider === 'zanai' && !endpoint) {
+                return { content: '', error: '❌ Z.AI requires a custom endpoint. Please set the "Z.AI Endpoint" in your AI Provider settings.\nExamples:\n• Mountly: https://api.z.ai/api/coding/paas/v4\n• Zhipu Global: (contact provider)' };
+            }
         } else {
             // Ensure endpoint ends with /chat/completions for OpenAI-compatible providers
             // This fix ensures Z.AI and other custom endpoints work even if only the base URL is provided
