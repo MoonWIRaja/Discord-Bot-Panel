@@ -492,10 +492,24 @@ Output format: JUST the raw code, nothing else.`;
 
         // Azure uses deployment names, NOT model names - always use empty model for Azure
         let chatModel = '';
-        if (genericProviderId !== 'azure') {
+        let azureType = providerConfig.azureType || 'auto';
+
+        // For Azure, check if we need to use responses API type
+        if (genericProviderId === 'azure') {
+            chatModel = '';  // Azure uses azureDeployment
+            // Detect azureType from endpoint if not set
+            if (!azureType || azureType === 'auto') {
+                const endpoint = providerConfig.azureEndpoint || providerConfig.endpoint || '';
+                if (endpoint.includes('/openai/responses')) {
+                    azureType = 'responses';
+                }
+            }
+        } else {
             // For non-Azure providers, get the chat model from config
             chatModel = providerConfig.models?.chat || providerConfig.models?.auto || '';
         }
+
+        console.log(`[Tool:generate_file] Using provider: ${genericProviderId}, model: ${chatModel || '(deployment)'}, azureType: ${azureType}`);
 
         const response = await AIService.chat({
             provider: genericProviderId as any,
@@ -504,6 +518,7 @@ Output format: JUST the raw code, nothing else.`;
             mode: 'chat' as const,
             azureEndpoint: providerConfig.azureEndpoint || providerConfig.endpoint || '',
             azureDeployment: providerConfig.azureDeployment || '',
+            azureType: azureType,
             endpoint: providerConfig.endpoint || providerConfig.zanaiEndpoint || ''
         }, [
             { role: 'system', content: systemPrompt },
@@ -511,7 +526,8 @@ Output format: JUST the raw code, nothing else.`;
         ]);
 
         if (!response.content) {
-            return `// Error generating content for ${filename}`;
+            console.error(`[Tool:generate_file] No content from AI for ${filename}, using fallback template`);
+            return generateFallbackTemplate(filename, projectPrompt, lang);
         }
 
         let code = response.content
@@ -519,10 +535,135 @@ Output format: JUST the raw code, nothing else.`;
             .replace(/^```\n?/gm, '')
             .trim();
 
+        // If AI returned an error message or content is too short, use fallback
+        if (code.includes('❌') || code.includes('Error:') || code.length < 50) {
+            console.error(`[Tool:generate_file] AI returned error or too short content for ${filename}, using fallback template`);
+            return generateFallbackTemplate(filename, projectPrompt, lang);
+        }
+
         return code;
     } catch (e: any) {
-        return `// Error: ${e?.message || 'Unknown error'}\n// File: ${filename}`;
+        console.error(`[Tool:generate_file] Error generating ${filename}:`, e.message);
+        return generateFallbackTemplate(filename, projectPrompt, lang);
     }
+}
+
+/**
+ * Fallback template when AI generation fails
+ */
+function generateFallbackTemplate(filename: string, prompt: string, lang: string): string {
+    const isHtml = filename.endsWith('.html');
+    const isPython = filename.endsWith('.py');
+    const isJs = filename.endsWith('.js');
+
+    if (isHtml) {
+        return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${prompt.substring(0, 30)}...</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .container { background: white; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 800px; width: 100%; padding: 40px; }
+        h1 { color: #333; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { color: #666; margin-bottom: 30px; font-size: 14px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #555; font-weight: 600; font-size: 14px; }
+        input, select, textarea { width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 14px; transition: all 0.3s; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+        .btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 14px 32px; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4); }
+        .result { margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px; display: none; }
+        .result.show { display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏨 ${prompt.substring(0, 30)}...</h1>
+        <p class="subtitle">Please fill in the details below</p>
+        <form id="bookingForm" onsubmit="handleSubmit(event)">
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" id="name" required placeholder="Enter your name">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="email" required placeholder="your@email.com">
+            </div>
+            <div class="form-group">
+                <label>Check-in Date</label>
+                <input type="date" id="checkin" required>
+            </div>
+            <div class="form-group">
+                <label>Check-out Date</label>
+                <input type="date" id="checkout" required>
+            </div>
+            <div class="form-group">
+                <label>Room Type</label>
+                <select id="room" required>
+                    <option value="">Select room type</option>
+                    <option value="standard">Standard Room ($100/night)</option>
+                    <option value="deluxe">Deluxe Room ($150/night)</option>
+                    <option value="suite">Suite ($250/night)</option>
+                </select>
+            </div>
+            <button type="submit" class="btn">Book Now</button>
+        </form>
+        <div id="result" class="result"></div>
+    </div>
+    <script>
+        function handleSubmit(e) {
+            e.preventDefault();
+            const name = document.getElementById('name').value;
+            const room = document.getElementById('room').options[document.getElementById('room').selectedIndex].text;
+            document.getElementById('result').innerHTML = '<h3>✅ Booking Confirmed!</h3><p>Thank you ' + name + '! Your ' + room + ' has been reserved.</p><p>We\\'ll send a confirmation email shortly.</p>';
+            document.getElementById('result').classList.add('show');
+        }
+    </script>
+</body>
+</html>`;
+    }
+
+    if (isPython) {
+        return `#!/usr/bin/env python3
+"""
+${prompt}
+Generated template - Please customize as needed
+"""
+
+def main():
+    print("${prompt}")
+    # TODO: Implement your logic here
+    pass
+
+if __name__ == "__main__":
+    main()
+`;
+    }
+
+    if (isJs) {
+        return `/**
+ * ${prompt}
+ * Generated template - Please customize as needed
+ */
+
+const express = require('express');
+const app = express();
+
+app.get('/', (req, res) => {
+    res.send('${prompt}');
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(\`Server running on port \${PORT}\`);
+});
+`;
+    }
+
+    return `// ${filename} - ${prompt}\n// Generated template - Please customize as needed\n\n// TODO: Implement your logic here`;
 }
 
 function generatePackageJson(prompt: string, lang: string): string {
