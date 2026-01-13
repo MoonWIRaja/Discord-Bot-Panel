@@ -139,27 +139,84 @@ export class TrainingService {
     /**
      * Get training context for AI system prompt
      * Returns formatted examples for the AI to learn from
+     * Prioritizes positive feedback examples, excludes negative ones
      */
     static async getTrainingContext(botId: string, limit: number = 20): Promise<string> {
         try {
             const examples = await db.select().from(aiTrainingData)
                 .where(eq(aiTrainingData.botId, botId))
                 .orderBy(desc(aiTrainingData.createdAt))
-                .limit(limit);
+                .limit(limit * 2); // Fetch more to filter
             
             if (examples.length === 0) {
                 return '';
             }
 
+            // Filter and sort: positive first, then neutral, exclude negative
+            const filtered = examples
+                .filter(ex => ex.userFeedback !== 'negative') // Exclude bad examples
+                .sort((a, b) => {
+                    // Positive feedback first
+                    if (a.userFeedback === 'positive' && b.userFeedback !== 'positive') return -1;
+                    if (b.userFeedback === 'positive' && a.userFeedback !== 'positive') return 1;
+                    return 0;
+                })
+                .slice(0, limit);
+
             // Format examples for context
-            const formattedExamples = examples.map(ex => 
-                `User: ${ex.userMessage.substring(0, 200)}\nYou: ${ex.aiResponse.substring(0, 300)}`
-            ).join('\n\n');
+            const formattedExamples = filtered.map(ex => {
+                const feedbackEmoji = ex.userFeedback === 'positive' ? ' 👍' : '';
+                return `User: ${ex.userMessage.substring(0, 200)}\nYou: ${ex.aiResponse.substring(0, 300)}${feedbackEmoji}`;
+            }).join('\n\n');
 
             return `Here are examples of how you should respond (learn this style):\n\n${formattedExamples}`;
         } catch (error) {
             console.error('[TrainingService] Error getting training context:', error);
             return '';
+        }
+    }
+
+    /**
+     * Save feedback on a training example from user reactions
+     * @param messageContent - The AI response content to find
+     * @param feedback - 'positive' or 'negative'
+     * @param feedbackUserId - User who gave feedback
+     */
+    static async saveFeedback(
+        botId: string,
+        aiResponseContent: string,
+        feedback: 'positive' | 'negative',
+        feedbackUserId: string
+    ): Promise<boolean> {
+        try {
+            // Find the most recent matching example
+            const examples = await db.select().from(aiTrainingData)
+                .where(eq(aiTrainingData.botId, botId))
+                .orderBy(desc(aiTrainingData.createdAt))
+                .limit(10);
+
+            // Find by partial match on AI response
+            const match = examples.find(ex =>
+                aiResponseContent.includes(ex.aiResponse.substring(0, 100)) ||
+                ex.aiResponse.includes(aiResponseContent.substring(0, 100))
+            );
+
+            if (match) {
+                await db.update(aiTrainingData)
+                    .set({
+                        userFeedback: feedback,
+                        feedbackUserId: feedbackUserId
+                    })
+                    .where(eq(aiTrainingData.id, match.id));
+
+                console.log(`[TrainingService] Saved ${feedback} feedback for example ${match.id}`);
+                return true;
+            }
+
+            return false;
+        } catch (error) {
+            console.error('[TrainingService] Error saving feedback:', error);
+            return false;
         }
     }
 

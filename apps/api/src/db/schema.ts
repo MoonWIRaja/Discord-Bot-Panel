@@ -265,6 +265,8 @@ export const aiTrainingData = pgTable('ai_training_data', {
 	userName: text('user_name'),
 	channelId: text('channel_id'),
 	isApproved: boolean('is_approved').default(true),
+	userFeedback: text('user_feedback'), // 'positive', 'negative', null
+	feedbackUserId: text('feedback_user_id'),
 	createdAt: timestamp('created_at').defaultNow()
 });
 
