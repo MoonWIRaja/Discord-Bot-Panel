@@ -140,6 +140,10 @@ router.post('/', async (req, res) => {
                 azureDeployment: data.azureDeployment || '',
                 azureType: data.azureType || 'auto', // openai, anthropic, serverless, inference, github, custom, auto
                 ollamaHost: data.ollamaHost || '',
+                // Custom endpoint for Z.AI, OpenRouter, and other custom providers
+                endpoint: data.endpoint || '',
+                zanaiEndpoint: data.zanaiEndpoint || data.endpoint || '', // Legacy support
+                openrouterEndpoint: data.openrouterEndpoint || '',
                 // Individual model properties (new format)
                 modelChat: data.modelChat || '',
                 modelCode: data.modelCode || '',
