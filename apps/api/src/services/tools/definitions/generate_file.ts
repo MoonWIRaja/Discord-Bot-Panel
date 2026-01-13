@@ -29,7 +29,7 @@ setInterval(() => {
 
 const generateFileTool: ToolDefinition = {
     name: 'generate_file',
-    description: 'Generate complete projects, web apps, scripts, or single files. Creates a ZIP file with proper folder structure. Examples: "create a full stack todo app", "make a React portfolio website", "build a Python web scraper with requirements.txt".',
+    description: '📁 FILE GENERATOR - Creates REAL code files and sends them as ZIP download. Use this DIRECTLY when user asks to create apps, websites, scripts, or any code. DO NOT ask questions - just generate the files. Examples: "create a todo app", "make a Python scraper", "build a React dashboard", "create a full stack API". Returns a ZIP file with proper project structure.',
     category: 'utility',
     parameters: {
         action: {

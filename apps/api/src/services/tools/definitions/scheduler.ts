@@ -174,32 +174,32 @@ function padTime(hours: number, minutes: number): string {
 
 const schedulerTool: ToolDefinition = {
     name: 'manage_schedule',
-    description: 'Create, list, or delete scheduled tasks and reminders. Supports natural language like "tomorrow at 5pm", "every day at 9am", "in 30 minutes", "every Monday", etc.',
+    description: '⏰ SCHEDULE TOOL - Creates REAL automatic reminders that will run at specified times. Use this tool DIRECTLY when user asks for reminders, schedules, or recurring tasks. DO NOT provide code snippets - just create the schedule. Examples: "remind me every day at 9am", "daily prayer times", "weekly meeting every Monday at 2pm", "remind in 30 minutes". All times use Malaysia timezone (UTC+8) automatically.',
     category: 'utility',
     parameters: {
         action: {
             type: 'string',
-            description: 'Action to perform: "create", "list", "delete", "pause", "resume"',
+            description: 'Action: "create" (make new reminder), "list" (show all reminders), "delete" (remove reminder), "pause" (temporary stop), "resume" (restart paused)',
             required: true
         },
         taskName: {
             type: 'string',
-            description: 'A unique name for the task (required for create/delete/pause/resume)',
+            description: 'Short unique name for this reminder (required for create): "prayer_times", "daily_standup", "water_reminder", etc.',
             required: false
         },
         description: {
             type: 'string',
-            description: 'What the reminder should say or do (e.g., "Take medication", "Drink water", "Meeting with team")',
+            description: 'What message to send when reminder triggers: "Time for Subuh prayer!", "Daily standup meeting", "Drink water now!", etc.',
             required: false
         },
         time: {
             type: 'string',
-            description: 'When to remind (natural language): "tomorrow at 5pm", "every day at 9am", "in 30 minutes", "every Monday at 8am", "every hour", etc. OR use cron expression directly.',
+            description: 'When to trigger (natural language): "every day at 6am", "every Monday at 9am", "in 30 minutes", "daily at 8am and 6pm", "every hour". Auto-converts to cron.',
             required: false
         },
         cron: {
             type: 'string',
-            description: 'Cron expression (alternative to "time" parameter for advanced users)',
+            description: 'Direct cron expression (advanced): "0 6 * * *" for daily 6am, "0 9 * * 1" for Monday 9am, etc.',
             required: false
         }
     },
@@ -209,7 +209,7 @@ const schedulerTool: ToolDefinition = {
         try {
             if (action === 'create') {
                 if (!taskName) {
-                    return '❌ Please provide a task name. Example: "remind me to drink water" (task name: "drink water")';
+                    return '❌ Please provide a task name. Example: "prayer_times" or "daily_reminder"';
                 }
 
                 let scheduleInfo;
@@ -219,7 +219,7 @@ const schedulerTool: ToolDefinition = {
                 if (time && !cronExpression) {
                     scheduleInfo = parseTimeToSchedule(time);
                     if (!scheduleInfo) {
-                        return `❌ Could not understand the time: "${time}". Try formats like:\n• "tomorrow at 5pm"\n• "every day at 9am"\n• "in 30 minutes"\n• "every Monday at 8am"\n• "every hour"`;
+                        return `❌ Could not understand the time: "${time}". Try formats like:\n• "every day at 6am"\n• "daily at 9am"\n• "in 30 minutes"\n• "every Monday at 8am"`;
                     }
                     if (scheduleInfo.type === 'cron') {
                         cronExpression = scheduleInfo.value;
@@ -230,7 +230,7 @@ const schedulerTool: ToolDefinition = {
                 }
 
                 if (!cronExpression) {
-                    return '❌ Please specify when to remind. Use "time" parameter (natural language) or "cron" parameter.';
+                    return '❌ Please specify when to remind using "time" parameter (natural language) or "cron" parameter.';
                 }
 
                 await db.insert(aiScheduler).values({
@@ -247,7 +247,7 @@ const schedulerTool: ToolDefinition = {
                 });
 
                 const scheduleDisplay = scheduleInfo?.display || cronExpression;
-                return `✅ Reminder "${taskName}" scheduled for: ${scheduleDisplay}`;
+                return `✅ Reminder "${taskName}" scheduled! Will run: ${scheduleDisplay}\n\n💭 The bot will automatically send: "${description || taskName}"`;
             }
 
             if (action === 'list') {
