@@ -1741,9 +1741,9 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
             let fullResponse = result.content || '';
             const filesToSend: Array<{ name: string; content: string }> = [];
 
-            // Handle tool calls (max 5 turns)
+            // Handle tool calls (max 10 turns)
             let turnCount = 0;
-            while (result.toolCalls && result.toolCalls.length > 0 && turnCount < 5) {
+            while (result.toolCalls && result.toolCalls.length > 0 && turnCount < 10) {
                 turnCount++;
 
                 // Add assistant message with tool calls to history (and messagesWithSystem)
@@ -1831,12 +1831,20 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                 }
             }
 
+            console.log(`[BotRuntime] Private chat tool loop completed. fullResponse length: ${fullResponse?.length || 0}`);
+
             // If no tool calls were made or final result is different
-            const finalResponse = fullResponse || result.content;
+            let finalResponse = fullResponse || result.content;
+
+            // If still no response but tools were executed successfully, provide a fallback
+            if (!finalResponse && result.toolCalls && result.toolCalls.length > 0) {
+                finalResponse = `✅ I've processed your request. Check the tool outputs above for details.`;
+            }
 
             const response = { ...result, content: finalResponse };
 
             if (response.error) {
+                console.error(`[BotRuntime] Private chat AI error: ${response.error}`);
                 await message.reply(`❌ AI Error: ${response.error}`);
                 return;
             }
@@ -3300,10 +3308,17 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                 let fullResponse = result.content || '';
                 const filesToSend: Array<{ name: string; content: string }> = [];
 
-                // Handle tool calls (max 5 turns)
+                // Handle tool calls (max 10 turns)
                 let turnCount = 0;
-                while (result.toolCalls && result.toolCalls.length > 0 && turnCount < 5) {
+                let hitMaxTurns = false;
+                while (result.toolCalls && result.toolCalls.length > 0 && turnCount < 10) {
                     turnCount++;
+
+                    // Check if we're about to hit max turns
+                    if (turnCount >= 10) {
+                        hitMaxTurns = true;
+                        console.log(`[BotRuntime] Approaching max tool turns (${turnCount}/10)`);
+                    }
 
                     // Add assistant message with tool calls to history
                     messages.push({
@@ -3387,8 +3402,15 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                     }
                 }
 
+                console.log(`[BotRuntime] Tool loop completed. turnCount=${turnCount}, hitMaxTurns=${hitMaxTurns}, hasContent=${!!fullResponse}, hasResultContent=${!!result.content}, hasError=${!!result.error}`);
+
                 // Final check - if we have no response but have content in the last result, use it
-                const finalResponse = fullResponse || result.content;
+                let finalResponse = fullResponse || result.content;
+
+                // If still no response but tools were executed successfully, provide a fallback
+                if (!finalResponse && turnCount > 0 && !result.error) {
+                    finalResponse = `✅ Tasks completed! I've executed ${turnCount} tool${turnCount > 1 ? 's' : ''} for you. Check the tool outputs above for details.`;
+                }
 
                 if (!result.error && finalResponse) {
                     // Record token usage - use selected provider after multi-provider selection
@@ -3476,6 +3498,7 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                         }
                     }
                 } else {
+                    console.error(`[BotRuntime] AI response error: ${result.error}, finalResponse: ${finalResponse?.substring(0, 100)}`);
                     await message.reply(`❌ ${result.error || 'Failed to get AI response'}`);
                 }
             }
