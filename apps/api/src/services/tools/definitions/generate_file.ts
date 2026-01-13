@@ -404,6 +404,24 @@ async function generateFileContent(filename: string, projectPrompt: string, lang
     const config = typeof bot[0].config === 'string' ? JSON.parse(bot[0].config) : bot[0].config;
     const aiConfig = config.ai || {};
 
+    // Get providers array and find the default or first provider
+    const providers = aiConfig.providers || [];
+    if (providers.length === 0) {
+        return `// Error: No AI providers configured for this bot\n// File: ${filename}`;
+    }
+
+    const defaultProviderId = aiConfig.defaultProvider || providers[0]?.id;
+    const providerConfig = providers.find((p: any) => p.id === defaultProviderId) || providers[0];
+
+    if (!providerConfig) {
+        return `// Error: Provider configuration not found\n// File: ${filename}`;
+    }
+
+    const apiKey = providerConfig.apiKey;
+    if (!apiKey) {
+        return `// Error: API key not configured for provider\n// File: ${filename}`;
+    }
+
     const systemPrompt = `You are an expert developer. Generate complete, working code.
 
 CRITICAL RULES:
@@ -421,10 +439,13 @@ Output format: JUST the raw code, nothing else.`;
 
     try {
         const response = await AIService.chat({
-            provider: aiConfig.provider || 'openai',
-            apiKey: aiConfig.apiKey || '',
-            model: aiConfig.model || 'gpt-4',
-            endpoint: aiConfig.endpoint
+            provider: providerConfig.provider || providerConfig.id || 'openai',
+            apiKey: apiKey,
+            model: providerConfig.models?.chat || providerConfig.models?.auto || '',
+            mode: 'chat' as const,
+            azureEndpoint: providerConfig.azureEndpoint || providerConfig.endpoint || '',
+            azureDeployment: providerConfig.azureDeployment || '',
+            endpoint: providerConfig.endpoint || providerConfig.zanaiEndpoint || ''
         }, [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: `Generate: ${filename}\n${additionalDesc || ''}` }

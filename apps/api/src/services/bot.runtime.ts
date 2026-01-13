@@ -1786,9 +1786,10 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                             // Collect files from tool result
                             if (typeof toolResult === 'object' && toolResult.files) {
                                 for (const file of toolResult.files) {
+                                    // Store base64 directly - will convert to Buffer when sending
                                     filesToSend.push({
                                         name: file.name,
-                                        content: Buffer.from(file.content, 'base64').toString('utf-8')
+                                        content: file.content  // Keep as base64 string
                                     });
                                 }
                             }
@@ -1912,9 +1913,9 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
 
             // Send AI response (with files if any)
             if (filesToSend.length > 0) {
-                // Send response with file attachments
+                // Send response with file attachments - convert base64 to Buffer
                 const attachments = filesToSend.map(f => ({
-                    attachment: Buffer.from(f.content),
+                    attachment: Buffer.from(f.content, 'base64'),
                     name: f.name
                 }));
                 await message.reply({
