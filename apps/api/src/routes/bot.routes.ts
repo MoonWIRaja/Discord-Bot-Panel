@@ -503,6 +503,11 @@ router.post('/ai/deploy-model', async (req, res) => {
       return;
     }
 
+    // Helper: detect if model needs max_completion_tokens (newer OpenAI models)
+    const needsMaxCompletionTokens = /(?:o1|o3|o4|gpt-5|gpt-5\.|gpt-4\.1|gpt-4\.2)/i.test(modelName);
+    const tokenLimit = needsMaxCompletionTokens ? 'max_completion_tokens' : 'max_tokens';
+    console.log(`[DeployModel] Model ${modelName} will use ${tokenLimit}`);
+
     console.log(`[DeployModel] Testing model "${modelName}" for provider "${provider}"`);
 
     // Test the model with actual API call
@@ -528,13 +533,15 @@ router.post('/ai/deploy-model', async (req, res) => {
           headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
         } else {
           testUrl = 'https://api.openai.com/v1/chat/completions';
-          testBody = { model: modelName, messages: [{ role: 'user', content: 'test' }], max_tokens: 20 };
+          testBody = { model: modelName, messages: [{ role: 'user', content: 'test' }] };
+          testBody[tokenLimit] = 20;
           headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
         }
         break;
       case 'groq':
         testUrl = 'https://api.groq.com/openai/v1/chat/completions';
-        testBody = { model: modelName, messages: [{ role: 'user', content: 'test' }], max_tokens: 20 };
+        testBody = { model: modelName, messages: [{ role: 'user', content: 'test' }] };
+        testBody[tokenLimit] = 20;
         headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
         break;
       case 'azure':
@@ -557,7 +564,8 @@ router.post('/ai/deploy-model', async (req, res) => {
           } else {
             // Chat models use chat/completions endpoint
             testUrl = `${baseEndpoint}/openai/deployments/${modelName}/chat/completions?api-version=2024-02-01`;
-            testBody = { messages: [{ role: 'user', content: 'test' }], max_tokens: 20 };
+            testBody = { messages: [{ role: 'user', content: 'test' }] };
+            testBody[tokenLimit] = 20;
             headers = { 'api-key': apiKey, 'Content-Type': 'application/json' };
           }
         }
@@ -572,7 +580,8 @@ router.post('/ai/deploy-model', async (req, res) => {
         if (endpoint && !testUrl.endsWith('/chat/completions') && !testUrl.includes('/images/generations')) {
           testUrl = testUrl.replace(/\/$/, '') + (testUrl.includes('/v4') ? '/chat/completions' : '/v1/chat/completions');
         }
-        testBody = { model: modelName, messages: [{ role: 'user', content: 'test' }], max_tokens: 20 };
+        testBody = { model: modelName, messages: [{ role: 'user', content: 'test' }] };
+        testBody[tokenLimit] = 20;
         headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
         break;
     }

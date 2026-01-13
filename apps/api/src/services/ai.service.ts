@@ -885,6 +885,8 @@ export class AIService {
      */
     static async chatOpenAICompatible(provider: string, apiKey: string, model: string, messages: AIMessage[], tools?: any[], baseURL?: string): Promise<AIResponse> {
         let endpoint = baseURL;
+        // Save original endpoint before any modifications
+        const originalEndpoint = baseURL;
 
         if (!endpoint) {
             const endpoints: Record<string, string> = {
@@ -932,48 +934,77 @@ export class AIService {
                     console.log(`[AIService] Trying model: ${currentModel} (${modelList.indexOf(currentModel) + 1}/${modelList.length})`);
                 }
 
+                // Detect if model needs max_completion_tokens (newer OpenAI/o1/o3/GPT-5 models)
+                const needsMaxCompletionTokens = /(?:o1|o3|o4|gpt-5|gpt-5\.|gpt-4\.1|gpt-4\.2)/i.test(currentModel);
+
                 // Z.AI (mountly/coding plan) has lower token limits per request
-                const maxTokens = (provider === 'zanai' && endpoint && endpoint.includes('api.z.ai')) ? 1024 : 4096;
-                if (provider === 'zanai' && endpoint && endpoint.includes('api.z.ai')) {
+                const isMountlyZAI = provider === 'zanai' && originalEndpoint && originalEndpoint.includes('api.z.ai');
+                let maxTokens = isMountlyZAI ? 1024 : 4096;
+                if (isMountlyZAI) {
                     console.log(`[AIService] Using reduced max_tokens=${maxTokens} for mountly Z.AI endpoint`);
                 }
+                if (needsMaxCompletionTokens) {
+                    console.log(`[AIService] Using max_completion_tokens for ${currentModel} (newer model)`);
+                }
 
-                const requestBody: any = {
-                    model: currentModel,
-                    messages: messages.map(m => {
-                        const msg: any = {
-                            role: m.role,
-                            content: m.content
-                        };
-                        if (m.tool_calls) msg.tool_calls = m.tool_calls;
-                        if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
-                        if (m.name) msg.name = m.name;
+                // Make request with retry for max_tokens -> max_completion_tokens
+                const makeRequest = async (useMaxCompletion = false) => {
+                    const requestBody: any = {
+                        model: currentModel,
+                        messages: messages.map(m => {
+                            const msg: any = {
+                                role: m.role,
+                                content: m.content
+                            };
+                            if (m.tool_calls) msg.tool_calls = m.tool_calls;
+                            if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
+                            if (m.name) msg.name = m.name;
 
-                        // Z.AI and OpenAI: assistant message with tool_calls should have null/empty content
-                        if (m.role === 'assistant' && m.tool_calls && !m.content) {
-                            // Zhipu AI (zanai) specifically prefers empty string over null for some models
-                            msg.content = provider === 'zanai' ? '' : null;
-                        }
+                            // Z.AI and OpenAI: assistant message with tool_calls should have null/empty content
+                            if (m.role === 'assistant' && m.tool_calls && !m.content) {
+                                // Zhipu AI (zanai) specifically prefers empty string over null for some models
+                                msg.content = provider === 'zanai' ? '' : null;
+                            }
 
-                        return msg;
-                    }),
-                    max_tokens: maxTokens,
-                    tools: tools && tools.length > 0 ? tools : undefined,
-                    tool_choice: tools && tools.length > 0 ? 'auto' : undefined
+                            return msg;
+                        }),
+                        tools: tools && tools.length > 0 ? tools : undefined,
+                        tool_choice: tools && tools.length > 0 ? 'auto' : undefined
+                    };
+
+                    // Use max_completion_tokens for newer models or on retry
+                    if (needsMaxCompletionTokens || useMaxCompletion) {
+                        requestBody.max_completion_tokens = maxTokens;
+                    } else {
+                        requestBody.max_tokens = maxTokens;
+                    }
+
+                    return fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
                 };
 
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-        
                 // DEBUG: Log if tools are being sent
                 if (tools && tools.length > 0) {
                     console.log(`[AIService] Sending ${tools.length} tools to ${provider} (${currentModel})`);
+                }
+
+                // First attempt
+                let response = await makeRequest(false);
+
+                // Retry with max_completion_tokens if max_tokens not supported
+                if (!response.ok && !needsMaxCompletionTokens) {
+                    const clone = response.clone();
+                    const text = await clone.text();
+                    if (text.includes("'max_tokens' is not supported") || text.includes('max_tokens')) {
+                        console.log(`[AIService] ${provider}/${currentModel} - Retrying with max_completion_tokens`);
+                        response = await makeRequest(true);
+                    }
                 }
 
                 if (!response.ok) {
@@ -1239,8 +1270,58 @@ static async chatAzure(config: AIConfig, messages: AIMessage[]): Promise<AIRespo
             return { content: '', error: error.message || 'Azure AI Inference error' };
         }
     }
-    
-    // 4. Standard Azure OpenAI - use deployment name
+
+    // 4. Azure OpenAI Responses API (newer GPT-5/o3+ models) - uses max_completion_tokens
+    if (azureType === 'responses') {
+        try {
+            const deployment = config.azureDeployment || config.model;
+            if (!deployment) {
+                return { content: '', error: '❌ Azure deployment/model not configured for Responses API' };
+            }
+
+            console.log(`[AIService] Azure Responses API - Using max_completion_tokens for ${deployment}`);
+
+            const body: any = {
+                messages: messages.map(m => {
+                    const msg: any = { role: m.role, content: m.content };
+                    if (m.tool_calls) msg.tool_calls = m.tool_calls;
+                    if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
+                    if (m.name) msg.name = m.name;
+                    return msg;
+                }),
+                max_completion_tokens: 4096,
+                tools: config.tools && config.tools.length > 0 ? config.tools : undefined,
+                tool_choice: config.tools && config.tools.length > 0 ? 'auto' : undefined
+            };
+
+            const response = await fetch(
+                `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=2024-02-01`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'api-key': config.apiKey
+                    },
+                    body: JSON.stringify(body)
+                }
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error?.message || `Azure Responses API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const tokensUsed = data.usage?.total_tokens ||
+                ((data.usage?.prompt_tokens || 0) + (data.usage?.completion_tokens || 0)) || null;
+            return { content: data.choices?.[0]?.message?.content || '', tokensUsed };
+        } catch (error: any) {
+            console.error('[AIService] Azure Responses API error:', error);
+            return { content: '', error: error.message || 'Azure Responses API error' };
+        }
+    }
+
+    // 5. Standard Azure OpenAI - use deployment name
     const deployment = config.azureDeployment || config.model;
     if (!deployment) {
         return { content: '', error: '❌ Azure deployment not configured. Please set Azure Deployment or Model name.' };
