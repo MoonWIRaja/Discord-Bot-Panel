@@ -1785,12 +1785,14 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
 
                             // Collect files from tool result
                             if (typeof toolResult === 'object' && toolResult.files) {
+                                console.log(`[BotRuntime] Tool returned ${toolResult.files.length} file(s)`);
                                 for (const file of toolResult.files) {
                                     // Store base64 directly - will convert to Buffer when sending
                                     filesToSend.push({
                                         name: file.name,
                                         content: file.content  // Keep as base64 string
                                     });
+                                    console.log(`[BotRuntime] Collected file: ${file.name}, content length: ${file.content?.length || 0}`);
                                 }
                             }
                         } catch (error: any) {
@@ -1913,15 +1915,18 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
 
             // Send AI response (with files if any)
             if (filesToSend.length > 0) {
+                console.log(`[BotRuntime] Sending ${filesToSend.length} file(s) to Discord`);
                 // Send response with file attachments - convert base64 to Buffer
                 const attachments = filesToSend.map(f => ({
                     attachment: Buffer.from(f.content, 'base64'),
                     name: f.name
                 }));
+                console.log(`[BotRuntime] Attachments prepared: ${attachments.map(a => `${a.name} (${a.attachment.length} bytes)`).join(', ')}`);
                 await message.reply({
                     content: response.content,
                     files: attachments
                 });
+                console.log(`[BotRuntime] Files sent successfully`);
             } else {
                 // Send AI response (split if too long)
                 const maxLength = 2000;

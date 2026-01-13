@@ -133,6 +133,8 @@ ${isMulti ? '📦 ZIP will have proper folder structure - just extract and run!'
             }
 
             if (action === 'send') {
+                console.log(`[Tool:generate_file] Send action - sessionId: ${sessionId}, userId: ${userId}, channelId: ${channelId}`);
+
                 // Find the session - by ID or find most recent for this user/channel
                 let session: {
                     userId: string;
@@ -147,15 +149,17 @@ ${isMulti ? '📦 ZIP will have proper folder structure - just extract and run!'
                     session = activeSessions.get(sessionId);
                 } else {
                     // Try to find the most recent session for this user/channel
-                    for (const [, sess] of activeSessions.entries()) {
+                    for (const [id, sess] of activeSessions.entries()) {
                         if (sess.userId === userId && sess.channelId === channelId) {
                             session = sess;
+                            console.log(`[Tool:generate_file] Found session: ${id} with ${sess.files.length} files`);
                             break;
                         }
                     }
                 }
 
                 if (!session) {
+                    console.log(`[Tool:generate_file] No session found! Active sessions: ${activeSessions.size}`);
                     return '❌ No active project found. Create one first.';
                 }
 
@@ -163,10 +167,13 @@ ${isMulti ? '📦 ZIP will have proper folder structure - just extract and run!'
                     return '❌ No files in project.';
                 }
 
+                console.log(`[Tool:generate_file] Sending ${session.files.length} file(s)`);
+
                 // Single file → send as individual file
                 // Multi-file → send as ZIP
                 if (session.files.length === 1) {
                     const file = session.files[0];
+                    console.log(`[Tool:generate_file] Sending single file: ${file.path}, size: ${file.content.length}`);
                     return {
                         content: `📄 **Sending file...**
 
@@ -180,8 +187,10 @@ ${isMulti ? '📦 ZIP will have proper folder structure - just extract and run!'
                 }
 
                 // Multi-file → Create ZIP with proper folder structure
+                console.log(`[Tool:generate_file] Creating ZIP with ${session.files.length} files`);
                 const zipBuffer = await createProperZip(session.files, session.prompt);
                 const zipName = `${sanitizeFilename(session.prompt.substring(0, 30))}_project.zip`;
+                console.log(`[Tool:generate_file] ZIP created: ${zipName}, size: ${zipBuffer.length}`);
 
                 return {
                     content: `📦 **Sending ZIP with ${session.files.length} files...**
