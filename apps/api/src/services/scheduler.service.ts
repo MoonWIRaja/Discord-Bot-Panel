@@ -1,5 +1,5 @@
 import { db } from '../db/index.js';
-import { aiScheduler, bots, aiConfigs } from '../db/schema.js';
+import { aiScheduler, bots } from '../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { BotRuntime } from './bot.runtime.js';
 import { AIService } from './ai.service.js';
@@ -29,11 +29,16 @@ export class SchedulerService {
             const now = new Date();
             const tasks = await db.select().from(aiScheduler).where(eq(aiScheduler.status, 'active'));
 
+            if (tasks.length > 0) {
+                console.log(`[SchedulerService] Checking ${tasks.length} active tasks at ${now.toISOString()}`);
+            }
+
             for (const task of tasks) {
                 const shouldRun = this.shouldRun(task, now);
                 const isOneTime = task.cronExpression.startsWith('ONE_TIME:');
 
                 if (shouldRun) {
+                    console.log(`[SchedulerService] Executing task: ${task.taskName} (one-time: ${isOneTime})`);
                     await this.executeTask(task);
 
                     // Delete one-time tasks after execution
@@ -55,7 +60,9 @@ export class SchedulerService {
         // ONE_TIME reminders - check if time has passed
         if (cron.startsWith('ONE_TIME:')) {
             const targetTime = parseInt(cron.replace('ONE_TIME:', ''));
-            return now.getTime() >= targetTime && (!task.lastRunAt || new Date(task.lastRunAt).getTime() < targetTime);
+            const shouldRun = now.getTime() >= targetTime && (!task.lastRunAt || new Date(task.lastRunAt).getTime() < targetTime);
+            console.log(`[SchedulerService] ONE_TIME check: task=${task.taskName}, target=${new Date(targetTime).toISOString()}, now=${now.toISOString()}, shouldRun=${shouldRun}`);
+            return shouldRun;
         }
 
         const minutesSinceLastRun = (now.getTime() - lastRun.getTime()) / 60000;
@@ -154,40 +161,19 @@ export class SchedulerService {
                 return;
             }
 
-            // Get bot config for AI
-            const botConfig = await db.select().from(aiConfigs)
-                .where(and(eq(aiConfigs.botId, task.botId), eq(aiConfigs.isEnabled, true)))
-                .limit(1);
+            // For scheduled reminders, just send the taskDescription directly - no need for AI generation
+            // This is more reliable and faster
+            let messageToSend = task.taskDescription || task.taskName;
 
-            if (botConfig.length === 0) {
-                console.log(`[SchedulerService] No AI config found for bot ${task.botId}`);
-                return;
-            }
-            const config = botConfig[0];
+            // Add timestamp for context
+            const currentTime = new Date().toLocaleString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', hour: '2-digit', minute: '2-digit' });
+            messageToSend = `⏰ [${currentTime}] ${messageToSend}`;
 
-            // Use AI to generate the task content
-            const prompt = `You are a scheduled task runner. Your task is: "${task.taskName}".
-Description: "${task.taskDescription}".
-Please generate a helpful, conversational message for the Discord channel based on this task.
-If it's a reminder, be friendly. If it's a digest, be informative.
-Current Time: ${new Date().toLocaleString('en-MY', { timeZone: 'Asia/Kuala_Lumpur' })} (Malaysia Time)
+            console.log(`[SchedulerService] Sending message: ${messageToSend.substring(0, 100)}`);
 
-Just send the message directly, no extra explanations.`;
-
-            const response = await AIService.chat({
-                provider: config.provider,
-                apiKey: config.apiKey,
-                endpoint: config.endpoint || undefined,
-                azureEndpoint: config.deployment || undefined,
-                model: (config.models as string[])?.[0] || 'gemini-1.5-flash',
-                mode: 'chat'
-            }, [{ role: 'system', content: prompt }]);
-
-            if (response.content) {
-                const chunks = AIService.chunkMessage(response.content);
-                for (const chunk of chunks) {
-                    await channel.send(chunk);
-                }
+            const chunks = AIService.chunkMessage(messageToSend);
+            for (const chunk of chunks) {
+                await channel.send(chunk);
             }
 
             // Update last run time (except for one-time tasks which get deleted)
