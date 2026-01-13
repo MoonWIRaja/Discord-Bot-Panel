@@ -133,19 +133,30 @@ ${isMulti ? '📦 ZIP will have proper folder structure - just extract and run!'
             }
 
             if (action === 'send') {
-                if (!sessionId) {
+                // Find the session - by ID or find most recent for this user/channel
+                let session: {
+                    userId: string;
+                    channelId: string;
+                    botId: string;
+                    prompt: string;
+                    files: Array<{ path: string; content: string; description?: string }>;
+                    createdAt: number;
+                } | undefined;
+
+                if (sessionId) {
+                    session = activeSessions.get(sessionId);
+                } else {
                     // Try to find the most recent session for this user/channel
-                    for (const [id, session] of activeSessions.entries()) {
-                        if (session.userId === userId && session.channelId === channelId) {
-                            return { content: `❌ Please use the session ID from your last "create" action: \`${id}\``, files: [] };
+                    for (const [, sess] of activeSessions.entries()) {
+                        if (sess.userId === userId && sess.channelId === channelId) {
+                            session = sess;
+                            break;
                         }
                     }
-                    return '❌ No active project found. Create one first.';
                 }
 
-                const session = activeSessions.get(sessionId);
                 if (!session) {
-                    return '❌ Session expired (1 hour). Create a new project.';
+                    return '❌ No active project found. Create one first.';
                 }
 
                 if (session.files.length === 0) {
