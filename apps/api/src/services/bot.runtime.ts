@@ -8,9 +8,12 @@ import { ToolRegistry } from './tools/index.js';
 import { TokenUsageService } from './tokenUsage.service.js';
 import { TrainingService } from './training.service.js';
 import { KnowledgeService } from './knowledge.service.js';
+import { UserMemoryService } from './user-memory.service.js';
+import { ConversationService } from './conversation.service.js';
 import puppeteer from 'puppeteer';
 import { DiscordTogether } from 'discord-together';
 import { randomUUID } from 'crypto';
+
 
 // Store active bot clients
 // const activeBots: Map<string, Client> = new Map();
@@ -1700,6 +1703,8 @@ export class BotRuntime {
             // Get training context if available (learned conversation style)
             let trainingContext = '';
             let knowledgeContext = '';
+            let userMemoryContext = '';
+            let conversationSummary = '';
             let trainingStatus: { isTrainingActive: boolean; totalExamples: number; lastTrainedAt: Date | null } = { isTrainingActive: false, totalExamples: 0, lastTrainedAt: null };
             try {
                 trainingStatus = await TrainingService.getStatus(botId);
@@ -1708,15 +1713,22 @@ export class BotRuntime {
                 }
                 // Get knowledge base context (permanent memory)
                 knowledgeContext = await KnowledgeService.getKnowledgeContext(botId);
+
+                // Get user-specific memory (what we know about this user)
+                userMemoryContext = await UserMemoryService.getUserMemoryContext(botId, message.author.id, userName);
+
+                // Get conversation summary (for long conversations)
+                conversationSummary = await ConversationService.getConversationContext(botId, message.channel.id, thread.id);
             } catch (e) {
-                // Continue without training/knowledge context
+                // Continue without context
+                console.log('[BotRuntime] Error loading AI context:', e);
             }
 
             const systemPrompt = `IMPORTANT: Your name is ${botName}. You are a Discord bot assistant BUT you chat like a close friend - casual, fun, and happy! 😊 NEVER say you are Claude, GPT, Gemini, or any other AI name. When asked your name, always say "${botName}". You are currently chatting with ${userName}.
 
 PERSONALITY: Be like a best friend who happens to be super smart! Use casual language, emojis, jokes, and be enthusiastic. Even when explaining coding or technical stuff, keep it light and fun like you're helping a buddy. Don't be too formal or robotic. Celebrate wins, comfort mistakes, and always be encouraging! Use "bro", "dude", "nice!", "awesome!" naturally. Speak like a friendly Malaysian if they speak in Malay.
 
-Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${knowledgeContext}${trainingContext ? `\n\n${trainingContext}` : ''}`;
+Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${conversationSummary}${userMemoryContext}${knowledgeContext}${trainingContext ? `\n\n${trainingContext}` : ''}`;
 
             // Prepend system message to history
             const messagesWithSystem = [
@@ -1904,6 +1916,35 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                 }
             }
             // ====== END TRAINING ======
+
+            // ====== PASSIVE LEARNING: Extract user preferences (always on) ======
+            try {
+                const userInfoEntries = await UserMemoryService.extractUserInfo(
+                    message.content,
+                    response.content,
+                    message.author.id,
+                    message.author.displayName || message.author.username,
+                    config
+                );
+                if (userInfoEntries.length > 0) {
+                    for (const entry of userInfoEntries) {
+                        await UserMemoryService.saveMemory(
+                            botId,
+                            message.author.id,
+                            message.author.displayName || message.author.username,
+                            entry
+                        );
+                    }
+                    this.addBotLog(botId, 'AI', `👤 User Memory: Learned ${userInfoEntries.length} preference(s) about ${message.author.username}`, {
+                        user: message.author.username,
+                        details: { prefs: userInfoEntries.map(e => e.key) }
+                    });
+                }
+            } catch (e) {
+                // Passive learning errors are non-blocking
+                console.log('[BotRuntime] Passive learning error:', e);
+            }
+            // ====== END PASSIVE LEARNING ======
 
             // Add AI response to history
             history.push({ role: 'assistant', content: response.content });
@@ -3149,6 +3190,8 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                 // Get training context if available (learned conversation style)
                 let trainingContext = '';
                 let knowledgeContext = '';
+                let userMemoryContext = '';
+                let conversationSummary = '';
                 let trainingStatus: { isTrainingActive: boolean; totalExamples: number; lastTrainedAt: Date | null } = { isTrainingActive: false, totalExamples: 0, lastTrainedAt: null };
                 try {
                     trainingStatus = await TrainingService.getStatus(botId);
@@ -3157,8 +3200,15 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${know
                     }
                     // Get knowledge base context (permanent memory)
                     knowledgeContext = await KnowledgeService.getKnowledgeContext(botId);
+
+                    // Get user-specific memory (what we know about this user)
+                    userMemoryContext = await UserMemoryService.getUserMemoryContext(botId, message.author.id, userName);
+
+                    // Get conversation summary (for long conversations)
+                    conversationSummary = await ConversationService.getConversationContext(botId, message.channel.id);
                 } catch (e) {
-                    // Continue without training/knowledge context
+                    // Continue without context
+                    console.log('[BotRuntime] Error loading AI context:', e);
                 }
 
                 // Get current server time for context
@@ -3204,7 +3254,7 @@ CRITICAL: When asked about real-time info, translations, calculations, or to rea
 
 PERSONALITY: Be like a best friend who happens to be super smart! Use casual language, emojis, jokes, and be enthusiastic. Even when explaining coding or technical stuff, keep it light and fun like you're helping a buddy. Don't be too formal or robotic. Celebrate wins, comfort mistakes, and always be encouraging! Use "bro", "dude", "nice!", "awesome!" naturally. Speak like a friendly Malaysian if they speak in Malay.
 
-Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeContext}${trainingContext ? `\n\n${trainingContext}` : ''}`;
+Always refer to yourself as ${botName}.${membersList}${chatHistory}${conversationSummary}${userMemoryContext}${knowledgeContext}${trainingContext ? `\n\n${trainingContext}` : ''}`;
 
                 // Prepare messages
                 const messages: AIMessage[] = [
@@ -3476,6 +3526,35 @@ Always refer to yourself as ${botName}.${membersList}${chatHistory}${knowledgeCo
                             console.error('[BotRuntime] Error saving training example:', e);
                         }
                     }
+
+                    // ====== PASSIVE LEARNING: Extract user preferences (always on) ======
+                    try {
+                        const userInfoEntries = await UserMemoryService.extractUserInfo(
+                            message.content,
+                            finalResponse,
+                            message.author.id,
+                            message.author.displayName || message.author.username,
+                            config
+                        );
+                        if (userInfoEntries.length > 0) {
+                            for (const entry of userInfoEntries) {
+                                await UserMemoryService.saveMemory(
+                                    botId,
+                                    message.author.id,
+                                    message.author.displayName || message.author.username,
+                                    entry
+                                );
+                            }
+                            this.addBotLog(botId, 'AI', `👤 User Memory: Learned ${userInfoEntries.length} preference(s) about ${message.author.username}`, {
+                                user: message.author.username,
+                                details: { prefs: userInfoEntries.map(e => e.key) }
+                            });
+                        }
+                    } catch (e) {
+                        // Passive learning errors are non-blocking
+                        console.log('[BotRuntime] Passive learning error:', e);
+                    }
+                    // ====== END PASSIVE LEARNING ======
 
                     // Send response (with files if any)
                     if (filesToSend.length > 0) {

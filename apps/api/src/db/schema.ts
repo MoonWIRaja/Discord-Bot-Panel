@@ -291,6 +291,38 @@ export const aiKnowledgeBase = pgTable('ai_knowledge_base', {
 	createdAt: timestamp('created_at').defaultNow(),
 	updatedAt: timestamp('updated_at').defaultNow()
 });
+
+// User-specific memory (per Discord user per bot)
+export const aiUserMemory = pgTable('ai_user_memory', {
+	id: text('id').primaryKey(),
+	botId: text('bot_id').notNull().references(() => bots.id, { onDelete: 'cascade' }),
+	discordUserId: text('discord_user_id').notNull(),
+	discordUserName: text('discord_user_name'),
+	category: text('category').default('preference'), // preference, style, interest, note, fact
+	key: text('key').notNull(),
+	value: text('value').notNull(),
+	confidence: integer('confidence').default(80),
+	source: text('source').default('auto'), // auto, manual, inferred
+	createdAt: timestamp('created_at').defaultNow(),
+	updatedAt: timestamp('updated_at').defaultNow()
+});
+
+// Conversation summaries for context retention
+export const aiConversationSummaries = pgTable('ai_conversation_summaries', {
+	id: text('id').primaryKey(),
+	botId: text('bot_id').notNull().references(() => bots.id, { onDelete: 'cascade' }),
+	channelId: text('channel_id').notNull(),
+	threadId: text('thread_id'),
+	summary: text('summary').notNull(),
+	keyTopics: text('key_topics'), // JSON array of topics discussed
+	participants: text('participants'), // JSON array of user IDs
+	messageCount: integer('message_count').default(0),
+	startMessageId: text('start_message_id'),
+	endMessageId: text('end_message_id'),
+	createdAt: timestamp('created_at').defaultNow(),
+	updatedAt: timestamp('updated_at').defaultNow()
+});
+
 export const aiScheduler = pgTable('ai_scheduler', {
 	id: text('id').primaryKey(),
 	botId: text('bot_id').notNull().references(() => bots.id, { onDelete: 'cascade' }),
