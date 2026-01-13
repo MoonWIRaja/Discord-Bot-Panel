@@ -238,52 +238,43 @@ ${session.files.map((f, i) => `  ${i + 1}. \`${f.path}\``).join('\n')}
 
 /**
  * Check if user wants a single file or full project
+ * Single file patterns have HIGHEST priority
  */
 function isSingleFileRequest(prompt: string): boolean {
     const lower = prompt.toLowerCase();
 
-    // Multi-file indicators (higher priority)
-    const multiPatterns = [
-        'full stack', 'full project', 'complete app', 'full app',
-        'with backend', 'with api', 'with database',
-        'react app', 'vue app', 'next.js app', 'nextjs app',
-        'nodejs app', 'express app', 'node app',
-        'multi-file', 'multiple files',
-        'web app with'
-    ];
-
-    // Single file indicators
+    // Single file indicators (HIGHEST PRIORITY - check first!)
     const singlePatterns = [
+        'single-file', 'single file', 'one file', 'just one file',
         'html page', 'html file', 'an html', 'single html',
         'python script', 'python file', 'a python file', 'a python script',
         'javascript file', 'js file',
-        'single file', 'one file', 'just one file',
         'simple html', 'basic html',
         'calculator in html', 'todo in html'
     ];
 
-    // Check multi patterns first
-    for (const pattern of multiPatterns) {
-        if (lower.includes(pattern)) return false;
-    }
-
-    // Check single patterns
+    // Check single patterns FIRST
     for (const pattern of singlePatterns) {
         if (lower.includes(pattern)) return true;
     }
 
-    // Default: if it says "app" or "project" without "single", assume multi-file
-    const hasAppOrProject = lower.includes('app') || lower.includes('project');
-    const hasHtml = lower.includes('html') || lower.includes('website') || lower.includes('webpage');
-    const hasPython = lower.includes('python');
+    // Multi-file indicators (only if not single-file)
+    const multiPatterns = [
+        'full stack', 'full project', 'complete app with',
+        'with backend', 'with api', 'with database',
+        'react app', 'vue app', 'next.js app', 'nextjs app',
+        'nodejs app', 'express app', 'node app',
+        'multi-file', 'multiple files',
+        'web app with backend', 'web app with api'
+    ];
 
-    // "html page", "website", etc = single file
-    // "app", "project" = multi-file
-    if (hasAppOrProject && !hasHtml && !lower.includes('page')) {
-        return false; // Multi-file
+    // Check multi patterns
+    for (const pattern of multiPatterns) {
+        if (lower.includes(pattern)) return false;
     }
 
-    // HTML/website without "app" keyword = single file
+    // Default: simple "web app", "website" = single file HTML
+    // Only multi-file if explicitly asks for backend/database/complex structure
     return true;
 }
 
@@ -375,25 +366,44 @@ function generateProjectStructure(prompt: string, lang: string): Array<{ name: s
  * Create a proper ZIP file using archiver
  */
 async function createProperZip(files: Array<{ path: string; content: string }>, projectName: string): Promise<Buffer> {
-    const path = await import('path');
-
     return new Promise((resolve, reject) => {
         const chunks: Buffer[] = [];
 
         // Create output stream
         const archive = archiver('zip', {
-            zlib: { level: 9 } // Maximum compression
+            zlib: { level: 6 } // Balanced compression (reliable)
         });
 
-        archive.on('data', (chunk: Buffer) => chunks.push(chunk));
-        archive.on('error', (err: Error) => reject(err));
-        archive.on('end', () => resolve(Buffer.concat(chunks)));
+        let totalSize = 0;
+
+        archive.on('data', (chunk: Buffer) => {
+            chunks.push(chunk);
+            totalSize += chunk.length;
+        });
+
+        archive.on('error', (err: Error) => {
+            console.error('[ZIP] Error:', err);
+            reject(err);
+        });
+
+        archive.on('warning', (err: any) => {
+            if (err.code !== 'ENTRY_PERMISSION_MODE') {
+                console.warn('[ZIP] Warning:', err);
+            }
+        });
+
+        archive.on('end', () => {
+            console.log(`[ZIP] Created: ${files.length} files, ${totalSize} bytes`);
+            resolve(Buffer.concat(chunks));
+        });
 
         // Add files to ZIP
+        console.log(`[ZIP] Adding ${files.length} files to archive`);
         for (const file of files) {
             archive.append(file.content, { name: file.path });
         }
 
+        // Finalize the archive
         archive.finalize();
     });
 }
