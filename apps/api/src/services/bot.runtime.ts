@@ -10,6 +10,7 @@ import { TrainingService } from './training.service.js';
 import { KnowledgeService } from './knowledge.service.js';
 import { UserMemoryService } from './user-memory.service.js';
 import { ConversationService } from './conversation.service.js';
+import { UserIdentityService } from './user-identity.service.js';
 import puppeteer from 'puppeteer';
 import { DiscordTogether } from 'discord-together';
 import { randomUUID } from 'crypto';
@@ -3148,7 +3149,37 @@ Always refer to yourself as ${botName}.${membersList}${chatHistoryContext}${conv
                 // Chat mode (auto)
                 // Get bot name and user name for AI context
                 const botName = client.user?.displayName || client.user?.username || 'AI Assistant';
-                const userName = message.author.displayName || message.author.username || 'User';
+                const discordUserName = message.author.displayName || message.author.username || 'User';
+
+                // ====== USER IDENTITY SYSTEM ======
+                // Check if we know this user and get their preferred name
+                let userIdentityContext = '';
+                let isNewUser = false;
+                let needsIntroduction = false;
+                let userName = discordUserName; // Default to Discord name
+
+                try {
+                    const identityInfo = await UserIdentityService.getIdentityContext(botId, message.author.id, discordUserName);
+                    userName = identityInfo.name;
+                    isNewUser = identityInfo.isNew;
+                    needsIntroduction = identityInfo.needsIntroduction;
+
+                    // Register new users automatically
+                    if (isNewUser) {
+                        await UserIdentityService.registerUser(botId, message.author.id, discordUserName);
+                        console.log(`[BotRuntime] Registered new user: ${discordUserName} (${message.author.id})`);
+                    }
+
+                    // Add identity context to prompt
+                    if (!isNewUser && userName !== discordUserName) {
+                        userIdentityContext = `\n\n=== USER IDENTITY ===\nThis is ${discordUserName} but they prefer to be called "${userName}". Always call them "${userName}".`;
+                    } else if (needsIntroduction) {
+                        userIdentityContext = `\n\n=== NEW USER ALERT ===\nThis is the first time meeting ${discordUserName}! Greet them warmly like meeting a new friend. Ask them: "Hey! Nak dipanggil apa? / What should I call you?" Remember their preference for next time.`;
+                    }
+                } catch (e) {
+                    console.log('[BotRuntime] Error checking user identity:', e);
+                }
+                // ====== END USER IDENTITY ======
 
                 // Get channel members (excluding bot and current user)
                 let membersList = '';
@@ -3254,7 +3285,7 @@ CRITICAL: When asked about real-time info, translations, calculations, or to rea
 
 PERSONALITY: Be like a best friend who happens to be super smart! Use casual language, emojis, jokes, and be enthusiastic. Even when explaining coding or technical stuff, keep it light and fun like you're helping a buddy. Don't be too formal or robotic. Celebrate wins, comfort mistakes, and always be encouraging! Use "bro", "dude", "nice!", "awesome!" naturally. Speak like a friendly Malaysian if they speak in Malay.
 
-Always refer to yourself as ${botName}.${membersList}${chatHistory}${conversationSummary}${userMemoryContext}${knowledgeContext}${trainingContext ? `\n\n${trainingContext}` : ''}`;
+Always refer to yourself as ${botName}.${userIdentityContext}${membersList}${chatHistory}${conversationSummary}${userMemoryContext}${knowledgeContext}${trainingContext ? `\n\n${trainingContext}` : ''}`;
 
                 // Prepare messages
                 const messages: AIMessage[] = [

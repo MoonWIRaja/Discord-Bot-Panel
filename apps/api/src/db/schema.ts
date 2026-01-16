@@ -340,3 +340,15 @@ export const aiScheduler = pgTable('ai_scheduler', {
 	createdAt: timestamp('created_at').defaultNow(),
 	updatedAt: timestamp('updated_at').defaultNow()
 });
+
+// User identity for AI recognition (stores Discord ID, name, and preferred nickname)
+export const aiUserIdentity = pgTable('ai_user_identity', {
+	id: text('id').primaryKey(),
+	botId: text('bot_id').notNull().references(() => bots.id, { onDelete: 'cascade' }),
+	discordUserId: text('discord_user_id').notNull(),
+	discordUserName: text('discord_user_name'), // Discord display name
+	preferredNickname: text('preferred_nickname'), // User's preferred name to be called
+	hasBeenIntroduced: boolean('has_been_introduced').default(false), // Whether intro flow completed
+	createdAt: timestamp('created_at').defaultNow(),
+	updatedAt: timestamp('updated_at').defaultNow()
+});

@@ -26,6 +26,7 @@ import './definitions/detect_language.js';
 // Utility tools
 import './definitions/scheduler.js';
 import './definitions/generate_file.js';
+import './definitions/set_nickname.js';
 
 export { ToolRegistry };
 export * from './registry.js';

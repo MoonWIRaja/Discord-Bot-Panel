@@ -96,11 +96,34 @@ export class SchedulerService {
         if (parts.length === 5) {
             const [cronMin, cronHour, cronDay, cronMonth, cronWeekday] = parts;
 
-            const currentMin = now.getMinutes();
-            const currentHour = now.getHours();
-            const currentDay = now.getDate();
-            const currentMonth = now.getMonth() + 1;
-            const currentWeekday = now.getDay(); // 0 = Sunday
+            // ====== TIMEZONE FIX ======
+            // Use configured timezone to get correct local time components
+            const tz = process.env.SERVER_TIMEZONE || 'Asia/Kuala_Lumpur';
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: tz,
+                hour: 'numeric',
+                minute: 'numeric',
+                day: 'numeric',
+                month: 'numeric',
+                weekday: 'short',
+                hour12: false
+            });
+            const nowParts = formatter.formatToParts(now);
+            const currentMin = parseInt(nowParts.find(p => p.type === 'minute')?.value || '0');
+            const currentHour = parseInt(nowParts.find(p => p.type === 'hour')?.value || '0');
+            const currentDay = parseInt(nowParts.find(p => p.type === 'day')?.value || '1');
+            const currentMonth = parseInt(nowParts.find(p => p.type === 'month')?.value || '1');
+            const weekdayStr = nowParts.find(p => p.type === 'weekday')?.value || 'Sun';
+            const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+            const currentWeekday = weekdayMap[weekdayStr] ?? 0;
+
+            // Also get lastRun in the same timezone
+            const lastRunParts = formatter.formatToParts(lastRun);
+            const lastRunMin = parseInt(lastRunParts.find(p => p.type === 'minute')?.value || '0');
+            const lastRunHour = parseInt(lastRunParts.find(p => p.type === 'hour')?.value || '0');
+            const lastRunDay = parseInt(lastRunParts.find(p => p.type === 'day')?.value || '1');
+            const lastRunMonth = parseInt(lastRunParts.find(p => p.type === 'month')?.value || '1');
+            // ====== END TIMEZONE FIX ======
 
             // Check if we're in the right minute window (within the last minute)
             const isRightMinute = currentMin === parseInt(cronMin);
@@ -110,23 +133,20 @@ export class SchedulerService {
             const isRightWeekday = cronWeekday === '*' || currentWeekday === parseInt(cronWeekday);
 
             // Check if we haven't run this task in this time period yet
-            const lastRunMin = lastRun.getMinutes();
-            const lastRunHour = lastRun.getHours();
-            const lastRunDay = lastRun.getDate();
-            const lastRunMonth = lastRun.getMonth() + 1;
-
             let alreadyRanThisPeriod = false;
 
             if (cronDay !== '*' && cronWeekday === '*') {
                 // Monthly/yearly - check if same day and haven't run this day
                 alreadyRanThisPeriod = lastRunDay === currentDay && lastRunMonth === currentMonth;
             } else if (cronWeekday !== '*') {
-                // Weekly - check if same weekday
+                // Weekly - check if same weekday (use timezone-aware weekday)
+                const lastRunWeekdayStr = lastRunParts.find(p => p.type === 'weekday')?.value || 'Sun';
+                const lastRunWeekday = weekdayMap[lastRunWeekdayStr] ?? 0;
                 const daysSinceLastRun = Math.floor((now.getTime() - lastRun.getTime()) / (1000 * 60 * 60 * 24));
-                alreadyRanThisPeriod = daysSinceLastRun < 7 && lastRun.getDay() === currentWeekday;
+                alreadyRanThisPeriod = daysSinceLastRun < 7 && lastRunWeekday === currentWeekday;
             } else {
-                // Daily - check if same day
-                alreadyRanThisPeriod = lastRunDay === currentDay && lastRun.getMonth() === now.getMonth();
+                // Daily - check if same day (use timezone-aware comparison)
+                alreadyRanThisPeriod = lastRunDay === currentDay && lastRunMonth === currentMonth;
             }
 
             // Also check if we already ran this hour/minute

@@ -12,10 +12,23 @@ import { randomUUID } from 'crypto';
  * - "every Monday at 8am" → "0 8 * * 1"
  * - "in 30 minutes" → timestamp
  * - "every hour" → "0 * * * *"
+ * 
+ * NOTE: Uses SERVER_TIMEZONE from environment for timestamp calculations
  */
-function parseTimeToSchedule(timeStr: string, timezone: string = 'UTC'): { type: 'cron' | 'timestamp'; value: string | number; display: string } | null {
+function parseTimeToSchedule(timeStr: string, timezone?: string): { type: 'cron' | 'timestamp'; value: string | number; display: string } | null {
+    // Use SERVER_TIMEZONE from environment as default
+    const tz = timezone || process.env.SERVER_TIMEZONE || 'Asia/Kuala_Lumpur';
     const now = new Date();
     const lower = timeStr.toLowerCase().trim();
+
+    // Helper to format display time in configured timezone
+    const formatDisplayTime = (date: Date): string => {
+        return date.toLocaleString('en-MY', {
+            timeZone: tz,
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        });
+    };
 
     // One-time reminders with specific time
     // "in X minutes/hours/days"
@@ -43,7 +56,7 @@ function parseTimeToSchedule(timeStr: string, timezone: string = 'UTC'): { type:
         return {
             type: 'timestamp',
             value: targetTime.getTime(),
-            display: targetTime.toLocaleString()
+            display: formatDisplayTime(targetTime)
         };
     }
 
@@ -70,7 +83,7 @@ function parseTimeToSchedule(timeStr: string, timezone: string = 'UTC'): { type:
         return {
             type: 'timestamp',
             value: targetDate.getTime(),
-            display: targetDate.toLocaleString()
+            display: formatDisplayTime(targetDate)
         };
     }
 
@@ -296,11 +309,12 @@ const schedulerTool: ToolDefinition = {
                 const tasks = await db.select().from(aiScheduler).where(eq(aiScheduler.botId, botId));
                 if (tasks.length === 0) return '📋 No scheduled reminders found.';
 
+                const tz = process.env.SERVER_TIMEZONE || 'Asia/Kuala_Lumpur';
                 const taskList = tasks.map(t => {
                     let schedule = t.cronExpression;
                     if (schedule.startsWith('ONE_TIME:')) {
                         const ts = parseInt(schedule.replace('ONE_TIME:', ''));
-                        schedule = `One-time: ${new Date(ts).toLocaleString()}`;
+                        schedule = `One-time: ${new Date(ts).toLocaleString('en-MY', { timeZone: tz, dateStyle: 'medium', timeStyle: 'short' })}`;
                     }
                     return `- [${t.status}] **${t.taskName}**: ${schedule}\n  └ ${t.taskDescription}`;
                 }).join('\n\n');
