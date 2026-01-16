@@ -58,12 +58,14 @@ export class SchedulerService {
     private static shouldRun(task: any, now: Date): boolean {
         const cron = task.cronExpression;
         const lastRun = task.lastRunAt ? new Date(task.lastRunAt) : new Date(0);
+        const tz = process.env.SERVER_TIMEZONE || 'Asia/Kuala_Lumpur';
+        const formatTime = (d: Date) => d.toLocaleString('en-MY', { timeZone: tz, dateStyle: 'short', timeStyle: 'medium' });
 
         // ONE_TIME reminders - check if time has passed
         if (cron.startsWith('ONE_TIME:')) {
             const targetTime = parseInt(cron.replace('ONE_TIME:', ''));
             const shouldRun = now.getTime() >= targetTime && (!task.lastRunAt || new Date(task.lastRunAt).getTime() < targetTime);
-            console.log(`[SchedulerService] ONE_TIME check: task=${task.taskName}, target=${new Date(targetTime).toISOString()}, now=${now.toISOString()}, shouldRun=${shouldRun}`);
+            console.log(`[SchedulerService] ONE_TIME check: task=${task.taskName}, target=${formatTime(new Date(targetTime))}, now=${formatTime(now)}, shouldRun=${shouldRun}`);
             return shouldRun;
         }
 
