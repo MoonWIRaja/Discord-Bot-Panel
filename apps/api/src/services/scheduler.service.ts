@@ -27,10 +27,12 @@ export class SchedulerService {
     private static async checkTasks() {
         try {
             const now = new Date();
+            const tz = process.env.SERVER_TIMEZONE || 'Asia/Kuala_Lumpur';
+            const nowDisplay = now.toLocaleString('en-MY', { timeZone: tz, dateStyle: 'short', timeStyle: 'medium' });
             const tasks = await db.select().from(aiScheduler).where(eq(aiScheduler.status, 'active'));
 
             if (tasks.length > 0) {
-                console.log(`[SchedulerService] Checking ${tasks.length} active tasks at ${now.toISOString()}`);
+                console.log(`[SchedulerService] Checking ${tasks.length} active tasks at ${nowDisplay} (${tz})`);
             }
 
             for (const task of tasks) {
